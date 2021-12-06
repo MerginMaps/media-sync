@@ -1,6 +1,6 @@
 project_working_dir=/tmp/mediasync
-allowed_extensions=".jpg,.png"
-operation_mode_move=false
+allowed_extensions="jpg,png"
+operation_mode=copy
 base_path=
 driver=local
 
@@ -14,7 +14,7 @@ project_name=media-sync/project
 dest=/tmp/mediasync_copy
 
 [minio]
-endpoint="localhost:9000"
+endpoint=localhost:9000
 access_key=EXAMPLE
 secret_key=EXAMPLEKEY
 bucket=test
@@ -22,11 +22,10 @@ secure=false
 region=
 
 [reference]
-enabled=false
 file=survey.gpkg
 table=notes
-local_path_field=photo
-driver_path_field=ext_url
+local_path_column=photo
+driver_path_column=ext_url
 
 [daemon]
 sleep_time=10

@@ -21,14 +21,13 @@ MINIO_SECRET_KEY = os.environ.get('TEST_MINIO_SECRET_KEY')
 def _reset_config():
     """ helper to reset config settings to ensure valid config """
     config.update({
-        'ALLOWED_EXTENSIONS': ".png",
+        'ALLOWED_EXTENSIONS': "png",
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
         'MERGIN__PROJECT_NAME': "test/mediasync",
         'PROJECT_WORKING_DIR': "/tmp/working_project",
-        'OPERATION_MODE_MOVE': False,
-        'REFERENCE__ENABLED': False,
+        'OPERATION_MODE': "copy",
         'DRIVER': "minio",
         'MINIO__ENDPOINT': MINIO_URL,
         'MINIO__ACCESS_KEY': MINIO_ACCESS_KEY,
@@ -68,6 +67,11 @@ def test_config():
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Incorrect media reference settings"):
-        config.update({'REFERENCE__ENABLED': True, 'REFERENCE__FILE': None})
+        config.update({'REFERENCE__FILE': None})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Unsupported operation mode"):
+        config.update({'OPERATION_MODE': ""})
         validate_config(config)
 
