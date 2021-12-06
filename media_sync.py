@@ -11,7 +11,7 @@ import sqlite3
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 
 from version import __version__
-from drivers import LocalDriver, MinioDriver, DriverError
+from drivers import DriverError, create_driver
 from config import config, validate_config, ConfigError
 
 
@@ -45,7 +45,7 @@ def _check_pending_changes():
 def _get_media_sync_files(files):
     """ Return files relevant to media sync from project files """
     allowed_extensions = config.allowed_extensions.split(",")
-    files_to_upload = [f for f in files if os.path.splitext(f["path"])[1] in allowed_extensions]
+    files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip('.') in allowed_extensions]
     # filter out files which are not under particular directory in mergin project
     if config.base_path:
         filtered_files = [f for f in files_to_upload if f["path"].startswith(config.base_path)]
@@ -71,7 +71,7 @@ def mc_download(mc):
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
-    print("Cloning project from mergin server ...")
+    print("Downloading project from Mergin server ...")
     try:
         mc.download_project(config.mergin.project_name, config.project_working_dir)
     except ClientError as e:
@@ -90,8 +90,6 @@ def mc_pull(mc):
     """
     print("Pulling from mergin server ...")
     _check_pending_changes()
-    if not config.allowed_extensions:
-        raise MediaSyncError("Missing allowed extensions")
 
     mp = MerginProject(config.project_working_dir)
     project_path = mp.metadata["name"]
@@ -122,6 +120,36 @@ def mc_pull(mc):
     return files_to_upload
 
 
+def _update_references(files):
+    """ Update references to media files in reference table """
+    reference_config = [config.reference.file, config.reference.table, config.reference.local_path_column,
+                        config.reference.driver_path_column]
+    if not all(reference_config):
+        return
+
+    print("Updating references ...")
+    try:
+        gpkg_conn = sqlite3.connect(os.path.join(config.project_working_dir, config.reference.file))
+        gpkg_conn.enable_load_extension(True)
+        gpkg_cur = gpkg_conn.cursor()
+        gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
+        for file, dest in files.items():
+            # remove reference to the local path only in the move mode
+            if config.operation_mode == "move":
+                sql = f"UPDATE {config.reference.table} " \
+                      f"SET {config.reference.driver_path_column}='{dest}', {config.reference.local_path_column}=Null " \
+                      f"WHERE {config.reference.local_path_column}='{file}'"
+            elif config.operation_mode == "copy":
+                sql = f"UPDATE {config.reference.table} " \
+                      f"SET {config.reference.driver_path_column}='{dest}' " \
+                      f"WHERE {config.reference.local_path_column}='{file}'"
+            gpkg_cur.execute(sql)
+        gpkg_conn.commit()
+        gpkg_conn.close()
+    except sqlite3.OperationalError as e:
+        raise MediaSyncError("SQLITE error: " + str(e))
+
+
 def media_sync_push(mc, driver, files):
     if not files:
         return
@@ -137,37 +165,19 @@ def media_sync_push(mc, driver, files):
             continue
 
         try:
+            size = os.path.getsize(src) / 1024 / 1024  # file size in MB
+            print(f"Uploading {file['path']} of size {size:.2f} MB")
             dest = driver.upload_file(src, file["path"])
             migrated_files[file['path']] = dest
         except DriverError as e:
             print(f"Failed to upload {file['path']}: " + str(e))
             continue
 
-    # update reference table
-    if config.as_bool("reference.enabled"):
-        try:
-            gpkg_conn = sqlite3.connect(os.path.join(config.project_working_dir, config.reference.file))
-            gpkg_conn.enable_load_extension(True)
-            gpkg_cur = gpkg_conn.cursor()
-            gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
-            for file, dest in migrated_files.items():
-                # remove reference to the local path only in the move mode
-                if config.as_bool('operation_mode_move'):
-                    sql = f"UPDATE {config.reference.table} " \
-                        f"SET {config.reference.driver_path_field}='{dest}', {config.reference.local_path_field}=Null " \
-                        f"WHERE {config.reference.local_path_field}='{file}'"
-                else:
-                    sql = f"UPDATE {config.reference.table} " \
-                          f"SET {config.reference.driver_path_field}='{dest}' " \
-                          f"WHERE {config.reference.local_path_field}='{file}'"
-                gpkg_cur.execute(sql)
-            gpkg_conn.commit()
-            gpkg_conn.close()
-        except sqlite3.OperationalError as e:
-            raise MediaSyncError("SQLITE error: " + str(e))
+    # update reference table (if applicable)
+    _update_references(migrated_files)
 
     # remove from local dir if move mode
-    if config.as_bool('operation_mode_move'):
+    if config.operation_mode == "move":
         for file in migrated_files.keys():
             src = os.path.join(config.project_working_dir, file)
             os.remove(src)
@@ -199,10 +209,7 @@ def main():
         return
 
     try:
-        if config.driver == "local":
-            driver = LocalDriver(config)
-        elif config.driver == "minio":
-            driver = MinioDriver(config)
+        driver = create_driver(config)
     except DriverError as e:
         print("Error: " + str(e))
         return

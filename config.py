@@ -9,7 +9,7 @@ License: MIT
 from dynaconf import Dynaconf
 
 config = Dynaconf(
-    envvar_prefix="MEDIASYNC",
+    envvar_prefix=False,
     settings_files=['config.ini'],
 )
 
@@ -27,6 +27,9 @@ def validate_config(config):
     if config.driver not in ["local", "minio"]:
         raise ConfigError("Config error: Unsupported driver")
 
+    if config.operation_mode not in ["move", "copy"]:
+        raise ConfigError("Config error: Unsupported operation mode")
+
     if config.driver == 'local' and not config.local.dest:
         raise ConfigError("Config error: Incorrect Local driver settings")
 
@@ -36,6 +39,6 @@ def validate_config(config):
     if not (config.allowed_extensions and len(config.allowed_extensions.split(","))):
         raise ConfigError("Config error: Allowed extensions can not be empty")
 
-    if config.as_bool("reference.enabled"):
-        if not (config.reference.file and config.reference.table and config.reference.local_path_field and config.reference.driver_path_field):
-            raise ConfigError("Config error: Incorrect media reference settings")
+    reference_config = [config.reference.file, config.reference.table, config.reference.local_path_column, config.reference.driver_path_column]
+    if any(reference_config) and not all(reference_config):
+        raise ConfigError("Config error: Incorrect media reference settings")

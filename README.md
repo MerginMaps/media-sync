@@ -18,9 +18,9 @@ docker build -t mergin_media_sync .
 To run the container, use a command like the following one: 
 ```shell
   docker run -it \
-  -e MERGIN_USERNAME=john \
-  -e MERGIN_PASSWORD=myStrongPassword \
-  -e MERGIN_PROJECT_NAME=john/my_project \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e MERGIN__PROJECT_NAME=john/my_project \
   mergin_media_sync python3 media_sync_daemon.py
 ```
 The sync process will start, regularly checking Mergin service copy/move media files from mergin project to external storage.
@@ -31,37 +31,38 @@ If you'd like to update references to media files (probably useful with MOVE mod
 docker run -it \
   -v /tmp/mediasync:/data \
   --name mergin-media-sync \
-  -e MEDIASYNC_MERGIN__USERNAME=john \
-  -e MEDIASYNC_MERGIN__PASSWORD=myStrongPassword \
-  -e MEDIASYNC_MERGIN__PROJECT_NAME=john/my_project \
-  -e MEDIASYNC_LOCAL__DEST=/data \
-  -e MEDIASYNC_OPERATION_MODE_MOVE=1 \
-  -e MEDIASYNC_REFERENCE__ENABLED=1 \
-  -e MEDIASYNC_REFERENCE__FILE=my_survey.gpkg \
-  -e MEDIASYNC_REFERENCE__TABLE=my_table \
-  -e MEDIASYNC_REFERENCE__LOCAL_PATH_FIELD=col_with_path \
-  -e MEDIASYNC_REFERENCE__DRIVER_PATH_FIELD=col_with_ext_url \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e MERGIN__PROJECT_NAME=john/my_project \
+  -e LOCAL__DEST=/data \
+  -e OPERATION_MODE_MOVE=1 \
+  -e REFERENCE__FILE=my_survey.gpkg \
+  -e REFERENCE__TABLE=my_table \
+  -e REFERENCE__LOCAL_PATH_FIELD=col_with_path \
+  -e REFERENCE__DRIVER_PATH_FIELD=col_with_ext_url \
   mergin-media-sync python3 media_sync_daemon.py
 ```
+Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
 
-Make sure you have correct structure of you .gpkg file.
 
 Last, in case you want to switch to different driver, you can run:
 ```shell
 docker run -it \
   --name mergin-media-sync \
-  -e MEDIASYNC_MERGIN__USERNAME=john \
-  -e MEDIASYNC_MERGIN__PASSWORD=myStrongPassword \
-  -e MEDIASYNC_MERGIN__PROJECT_NAME=john/my_project \
-  -e MEDIASYNC_MERGIN__PROJECT_NAME=ttest/mediasync_test \
-  -e MEDIASYNC_DRIVER=minio \
-  -e MEDIASYNC_MINIO__ENDPOINT="minio-server-url" \
-  -e MEDIASYNC_MINIO__ACCESS_KEY=access-key \
-  -e MEDIASYNC_MINIO__SECRET_KEY=secret-key \
-  -e MEDIASYNC_MINIO__BUCKET=destination-bucket \
-  -e MEDIASYNC_MINIO__SECRET=1 \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e MERGIN__PROJECT_NAME=john/my_project \
+  -e MERGIN__PROJECT_NAME=ttest/mediasync_test \
+  -e DRIVER=minio \
+  -e MINIO__ENDPOINT="minio-server-url" \
+  -e MINIO__ACCESS_KEY=access-key \
+  -e MINIO__SECRET_KEY=secret-key \
+  -e MINIO__BUCKET=destination-bucket \
+  -e MINIO__SECRET=1 \
   mergin-media-sync python3 media_sync_daemon.py
 ```
+
+**Please note double underscore `__` is used to separate config group and item.**
 
 ### Installation
 
@@ -100,7 +101,7 @@ and run local minio server:
 docker run \
   -p 9000:9000 \
   -p 9001:9001 \
-  --name minio1\
+  --name minio\
   -e "MINIO_ROOT_USER=EXAMPLE" \
   -e "MINIO_ROOT_PASSWORD=EXAMPLEKEY" \
   quay.io/minio/minio server /data --console-address ":9001"

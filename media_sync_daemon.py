@@ -9,7 +9,7 @@ License: MIT
 import datetime
 import os
 import time
-from drivers import LocalDriver, MinioDriver, DriverError
+from drivers import DriverError, create_driver
 from media_sync import create_mergin_client, mc_download, media_sync_push, mc_pull, MediaSyncError
 from config import config, validate_config, ConfigError
 from version import __version__
@@ -25,10 +25,7 @@ def main():
         return
 
     try:
-        if config.driver == "local":
-            driver = LocalDriver(config)
-        elif config.driver == "minio":
-            driver = MinioDriver(config)
+        driver = create_driver(config)
     except DriverError as e:
         print("Error: " + str(e))
         return
