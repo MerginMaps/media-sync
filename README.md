@@ -35,7 +35,7 @@ docker run -it \
   -e MERGIN__PASSWORD=myStrongPassword \
   -e MERGIN__PROJECT_NAME=john/my_project \
   -e LOCAL__DEST=/data \
-  -e OPERATION_MODE_MOVE=1 \
+  -e OPERATION_MODE=move \
   -e REFERENCE__FILE=my_survey.gpkg \
   -e REFERENCE__TABLE=my_table \
   -e REFERENCE__LOCAL_PATH_FIELD=col_with_path \
