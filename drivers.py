@@ -69,17 +69,16 @@ class MinioDriver(Driver):
             bucket_found = self.client.bucket_exists(self.bucket)
             if not bucket_found:
                 self.client.make_bucket(self.bucket)
+            # construct base url for bucket
+            scheme = "https://" if self.config.as_bool("secure") else "http://"
+            self.base_url = scheme + config.minio.endpoint + '/' + self.bucket
         except S3Error as e:
             raise DriverError("MinIO driver init error: " + str(e))
 
     def upload_file(self, src, obj_path):
         try:
             res = self.client.fput_object(self.bucket, obj_path, src)
-            presigned_url = self.client.get_presigned_url('get', self.bucket, res.object_name)
-            parsed_url = urlparse(presigned_url)
-            # set canonical url (e.g. http://minio-server/bucket-name/object-name) to get the file (bucket should be public)
-            # pre-signed url with auth parameters cannot be used because there is expiration limit which cannot be bypassed
-            dest = urlunparse((parsed_url[0], parsed_url[1], parsed_url[2], None, None, None))
+            dest = self.base_url + '/' + res.object_name
         except S3Error as e:
             raise DriverError("MinIO driver error: " + str(e))
         return dest
