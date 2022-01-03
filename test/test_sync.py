@@ -198,9 +198,15 @@ def test_pull_and_sync(mc):
     # initial run
     main()
 
-    # let's update project on server
+    # let's update project on server - create new .png file and modify reference .gpkg file
     project_dir = os.path.join(TMP_DIR, project_name + '_create')
     shutil.copyfile(os.path.join(project_dir, 'img1.png'), os.path.join(project_dir, 'img_new.png'))
+    gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'survey.gpkg'))
+    gpkg_conn.enable_load_extension(True)
+    gpkg_cur = gpkg_conn.cursor()
+    gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
+    gpkg_cur.execute("update notes set photo = 'img_new.png' where name = 'test'")
+    gpkg_conn.commit()
     mc.push_project(project_dir)
     project_info = mc.project_info(full_project_name)
     assert project_info["version"] == "v2"

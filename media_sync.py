@@ -96,7 +96,7 @@ def mc_pull(mc):
     local_version = mp.metadata["version"]
 
     try:
-        project_info = mc.project_info(project_path)
+        project_info = mc.project_info(project_path, since=local_version)
         projects = mc.get_projects_by_names([project_path])
         server_version = projects[project_path]["version"]
     except ClientError as e:
