@@ -7,6 +7,12 @@ subsequently removed from mergin project (on cloud).
 
 Also user can choose whether references to media files should be updated.
 
+### Quick start
+
+Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin project to your MinIO/S3 bucket.
+
+<div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
+
 ### Running with Docker
 
 The easiest way to run Media sync is with Docker.
@@ -15,6 +21,7 @@ To build a local docker image:
 docker build -t mergin_media_sync .
 ```
 
+#### Local test
 To run the container, use a command like the following one: 
 ```shell
   docker run -it \
@@ -26,6 +33,7 @@ To run the container, use a command like the following one:
 The sync process will start, regularly checking Mergin service copy/move media files from mergin project to external storage.
 Local drive is a default backend, you need to mount volume from host machine for data to persist. 
 
+#### Update reference table in geopackage
 If you'd like to update references to media files (probably useful with MOVE mode), you can run:
 ```shell
 docker run -it \
@@ -44,7 +52,7 @@ docker run -it \
 ```
 Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
 
-
+#### Using MinIO backend
 Last, in case you want to switch to different driver, you can run:
 ```shell
 docker run -it \
@@ -62,7 +70,7 @@ docker run -it \
   mergin-media-sync python3 media_sync_daemon.py
 ```
 
-**Please note double underscore `__` is used to separate config group and item.**
+**Please note double underscore `__` is used to separate [config](config.ini.default) group and item.**
 
 ### Installation
 
