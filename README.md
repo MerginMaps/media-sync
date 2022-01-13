@@ -13,25 +13,18 @@ Not sure where to start? Check out our [quick start](docs/quick_start.md) guide 
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
-### Running with Docker
 
-The easiest way to run Media sync is with Docker.
-To build a local docker image:
-```
-docker build -t mergin_media_sync .
-```
-
-#### Local test
-To run the container, use a command like the following one: 
+#### Running with Docker
+To run the container, use a command like the following one:
 ```shell
   docker run -it \
   -e MERGIN__USERNAME=john \
   -e MERGIN__PASSWORD=myStrongPassword \
   -e MERGIN__PROJECT_NAME=john/my_project \
-  mergin_media_sync python3 media_sync_daemon.py
+  lutraconsulting/mergin-media-sync:latest python3 media_sync_daemon.py
 ```
-The sync process will start, regularly checking Mergin service copy/move media files from mergin project to external storage.
-Local drive is a default backend, you need to mount volume from host machine for data to persist. 
+The sync process will start, regularly checking Mergin service copy/move media files from a Mergin project to an external storage.
+Local drive is a default backend, you need to mount volume from host machine for data to persist.
 
 #### Update reference table in geopackage
 If you'd like to update references to media files (probably useful with MOVE mode), you can run:
@@ -73,6 +66,20 @@ docker run -it \
 **Please note double underscore `__` is used to separate [config](config.ini.default) group and item.**
 
 ### Installation
+
+#### Docker
+The easiest way to run Media sync is with Docker provided on our [docker hub repo](https://hub.docker.com/repository/docker/lutraconsulting/mergin-media-sync). You can build your own local docker image, by first cloning the repo:
+
+```
+git clone git@github.com:lutraconsulting/mergin-media-sync.git
+```
+
+And then building the image:
+
+```
+docker build -t mergin_media_sync .
+```
+#### Manual installation
 
 If you would like to avoid the manual installation steps, please follow the guide on using sync with Docker above. We use pipenv for managing python virtual environment.
 
@@ -125,3 +132,14 @@ To run automatic tests:
   export TEST_MINIO_SECRET_KEY=EXAMPLEKEY
   pipenv run pytest test/
 ```
+
+### Releasing new version
+
+1. Update `version.py` and `CHANGELOG.md`
+2. Tag the new version in git repo
+3. Build and upload the new container (both with the new version tag and as the latest tag)
+   ```
+   docker build --no-cache -t lutraconsulting/mergin-media-sync .
+   docker tag lutraconsulting/mergin-media-sync lutraconsulting/mergin-media-sync:0.1.0
+   docker push lutraconsulting/mergin-media-sync:0.1.0
+   docker push lutraconsulting/mergin-media-sync:latest
