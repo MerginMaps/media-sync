@@ -21,7 +21,7 @@ To run the container, use a command like the following one:
   -e MERGIN__USERNAME=john \
   -e MERGIN__PASSWORD=myStrongPassword \
   -e MERGIN__PROJECT_NAME=john/my_project \
-  lutraconsulting/mergin-media-sync:latest python3 media_sync_daemon.py
+  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 The sync process will start, regularly checking Mergin service copy/move media files from a Mergin project to an external storage.
 Local drive is a default backend, you need to mount volume from host machine for data to persist.
@@ -41,7 +41,7 @@ docker run -it \
   -e REFERENCE__TABLE=my_table \
   -e REFERENCE__LOCAL_PATH_FIELD=col_with_path \
   -e REFERENCE__DRIVER_PATH_FIELD=col_with_ext_url \
-  mergin-media-sync python3 media_sync_daemon.py
+  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
 
@@ -59,8 +59,8 @@ docker run -it \
   -e MINIO__ACCESS_KEY=access-key \
   -e MINIO__SECRET_KEY=secret-key \
   -e MINIO__BUCKET=destination-bucket \
-  -e MINIO__SECRET=1 \
-  mergin-media-sync python3 media_sync_daemon.py
+  -e MINIO__SECURE=1 \
+  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 
 **Please note double underscore `__` is used to separate [config](config.ini.default) group and item.**
