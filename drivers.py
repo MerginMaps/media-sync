@@ -70,7 +70,7 @@ class MinioDriver(Driver):
             if not bucket_found:
                 self.client.make_bucket(self.bucket)
             # construct base url for bucket
-            scheme = "https://" if self.config.as_bool("secure") else "http://"
+            scheme = "https://" if config.as_bool("minio.secure") else "http://"
             self.base_url = scheme + config.minio.endpoint + '/' + self.bucket
         except S3Error as e:
             raise DriverError("MinIO driver init error: " + str(e))
