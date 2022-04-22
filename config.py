@@ -10,7 +10,7 @@ from dynaconf import Dynaconf
 
 config = Dynaconf(
     envvar_prefix=False,
-    settings_files=['config.ini'],
+    settings_files=['config.yaml'],
 )
 
 
@@ -36,9 +36,13 @@ def validate_config(config):
     if config.driver == 'minio' and not (config.minio.endpoint and config.minio.access_key and config.minio.secret_key and config.minio.bucket):
         raise ConfigError("Config error: Incorrect MinIO driver settings")
 
-    if not (config.allowed_extensions and len(config.allowed_extensions.split(","))):
+    if not (config.allowed_extensions and len(config.allowed_extensions)):
         raise ConfigError("Config error: Allowed extensions can not be empty")
 
-    reference_config = [config.reference.file, config.reference.table, config.reference.local_path_column, config.reference.driver_path_column]
-    if any(reference_config) and not all(reference_config):
-        raise ConfigError("Config error: Incorrect media reference settings")
+    if not (config.references and len(config.references)):
+        raise ConfigError("Config error: References list can not be empty")
+
+    if config.references:
+        for ref in config.references:
+            if not all(hasattr(ref, attr) for attr in ['file', 'table', 'local_path_column', 'driver_path_column']):
+                raise ConfigError("Config error: Incorrect media reference settings")

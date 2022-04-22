@@ -21,7 +21,7 @@ MINIO_SECRET_KEY = os.environ.get('TEST_MINIO_SECRET_KEY')
 def _reset_config():
     """ helper to reset config settings to ensure valid config """
     config.update({
-        'ALLOWED_EXTENSIONS': "png",
+        'ALLOWED_EXTENSIONS': ["png"],
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
@@ -62,12 +62,17 @@ def test_config():
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Allowed extensions can not be empty"):
-        config.update({'ALLOWED_EXTENSIONS': ""})
+        config.update({'ALLOWED_EXTENSIONS': []})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: References list can not be empty"):
+        config.update({'REFERENCES': []})
         validate_config(config)
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Incorrect media reference settings"):
-        config.update({'REFERENCE__FILE': None})
+        config.update({'REFERENCES': [{"file": "survey.gpkg"}]})
         validate_config(config)
 
     _reset_config()
