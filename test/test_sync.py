@@ -311,7 +311,7 @@ def test_sync_failures(mc):
     assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
 
 def test_multiple_tables(mc):
-    project_name = "mediasync_test"
+    project_name = "mediasync_test_multiple"
     full_project_name = API_USER + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
     driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
