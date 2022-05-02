@@ -32,7 +32,8 @@ def _reset_config():
         'MINIO__ENDPOINT': MINIO_URL,
         'MINIO__ACCESS_KEY': MINIO_ACCESS_KEY,
         'MINIO__SECRET_KEY': MINIO_SECRET_KEY,
-        'MINIO__BUCKET': 'test'
+        'MINIO__BUCKET': 'test',
+        'REFERENCES': [{"file": "survey.gpkg", "table": "table", "local_path_column": "local_path_column", "driver_path_column": "driver_path_column"}]
     })
 
 
