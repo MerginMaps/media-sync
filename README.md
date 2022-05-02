@@ -7,6 +7,9 @@ subsequently removed from mergin project (on cloud).
 
 Also user can choose whether references to media files should be updated.
 
+**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
+
+
 ### Quick start
 
 Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin project to your MinIO/S3 bucket.
