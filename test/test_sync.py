@@ -355,5 +355,3 @@ def test_multiple_tables(mc):
     sql = f"SELECT count(*) FROM {config.references[1].table} WHERE {config.references[1].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 1
-    shutil.rmtree(work_project_dir)
-    shutil.rmtree(driver_dir)
