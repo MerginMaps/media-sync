@@ -19,6 +19,11 @@ class MediaSyncError(Exception):
     pass
 
 
+def _quote_identifier(identifier):
+    """Quote identifiers"""
+    return "\"" + identifier + "\""
+
+
 def _get_project_version():
     """ Returns the current version of the project """
     mp = MerginProject(config.project_working_dir)
@@ -136,13 +141,13 @@ def _update_references(files):
             for file, dest in files.items():
                 # remove reference to the local path only in the move mode
                 if config.operation_mode == "move":
-                    sql = f"UPDATE {ref.table} " \
-                          f"SET {ref.driver_path_column}='{dest}', {ref.local_path_column}=Null " \
-                          f"WHERE {ref.local_path_column}='{file}'"
+                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
+                          f"SET {_quote_identifier(ref.driver_path_column)}='{dest}', {_quote_identifier(ref.local_path_column)}=Null " \
+                          f"WHERE {_quote_identifier(ref.local_path_column)}='{file}'"
                 elif config.operation_mode == "copy":
-                    sql = f"UPDATE {ref.table} " \
-                          f"SET {ref.driver_path_column}='{dest}' " \
-                          f"WHERE {ref.local_path_column}='{file}'"
+                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
+                          f"SET {_quote_identifier(ref.driver_path_column)}='{dest}' " \
+                          f"WHERE {_quote_identifier(ref.local_path_column)}='{file}'"
                 gpkg_cur.execute(sql)
             gpkg_conn.commit()
             gpkg_conn.close()
