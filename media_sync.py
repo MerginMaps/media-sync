@@ -44,7 +44,7 @@ def _check_pending_changes():
 
 def _get_media_sync_files(files):
     """ Return files relevant to media sync from project files """
-    allowed_extensions = config.allowed_extensions.split(",")
+    allowed_extensions = config.allowed_extensions
     files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip('.') in allowed_extensions]
     # filter out files which are not under particular directory in mergin project
     if config.base_path:
@@ -122,32 +122,32 @@ def mc_pull(mc):
 
 def _update_references(files):
     """ Update references to media files in reference table """
-    reference_config = [config.reference.file, config.reference.table, config.reference.local_path_column,
-                        config.reference.driver_path_column]
-    if not all(reference_config):
-        return
+    for ref in config.references:
+        reference_config = [ref.file, ref.table, ref.local_path_column, ref.driver_path_column]
+        if not all(reference_config):
+            return
 
-    print("Updating references ...")
-    try:
-        gpkg_conn = sqlite3.connect(os.path.join(config.project_working_dir, config.reference.file))
-        gpkg_conn.enable_load_extension(True)
-        gpkg_cur = gpkg_conn.cursor()
-        gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
-        for file, dest in files.items():
-            # remove reference to the local path only in the move mode
-            if config.operation_mode == "move":
-                sql = f"UPDATE {config.reference.table} " \
-                      f"SET {config.reference.driver_path_column}='{dest}', {config.reference.local_path_column}=Null " \
-                      f"WHERE {config.reference.local_path_column}='{file}'"
-            elif config.operation_mode == "copy":
-                sql = f"UPDATE {config.reference.table} " \
-                      f"SET {config.reference.driver_path_column}='{dest}' " \
-                      f"WHERE {config.reference.local_path_column}='{file}'"
-            gpkg_cur.execute(sql)
-        gpkg_conn.commit()
-        gpkg_conn.close()
-    except sqlite3.OperationalError as e:
-        raise MediaSyncError("SQLITE error: " + str(e))
+        print("Updating references ...")
+        try:
+            gpkg_conn = sqlite3.connect(os.path.join(config.project_working_dir, ref.file))
+            gpkg_conn.enable_load_extension(True)
+            gpkg_cur = gpkg_conn.cursor()
+            gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
+            for file, dest in files.items():
+                # remove reference to the local path only in the move mode
+                if config.operation_mode == "move":
+                    sql = f"UPDATE {ref.table} " \
+                          f"SET {ref.driver_path_column}='{dest}', {ref.local_path_column}=Null " \
+                          f"WHERE {ref.local_path_column}='{file}'"
+                elif config.operation_mode == "copy":
+                    sql = f"UPDATE {ref.table} " \
+                          f"SET {ref.driver_path_column}='{dest}' " \
+                          f"WHERE {ref.local_path_column}='{file}'"
+                gpkg_cur.execute(sql)
+            gpkg_conn.commit()
+            gpkg_conn.close()
+        except sqlite3.OperationalError as e:
+            raise MediaSyncError("SQLITE error: " + str(e))
 
 
 def media_sync_push(mc, driver, files):

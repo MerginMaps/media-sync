@@ -72,7 +72,7 @@ def test_sync(mc):
 
     # patch config to fit testing purposes
     config.update({
-        'ALLOWED_EXTENSIONS': "png,jpg",
+        'ALLOWED_EXTENSIONS': ["png","jpg"],
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
@@ -81,10 +81,7 @@ def test_sync(mc):
         'DRIVER': "local",
         'LOCAL__DEST': driver_dir,
         'OPERATION_MODE': "copy",
-        'REFERENCE__FILE': None,
-        'REFERENCE__TABLE': None,
-        'REFERENCE__LOCAL_PATH_COLUMN': None,
-        'REFERENCE__DRIVER_PATH_COLUMN': None
+        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
     })
 
     main()
@@ -104,7 +101,7 @@ def test_sync(mc):
     shutil.rmtree(driver_dir)
 
     # limit sync to .jpg only
-    config.update({"allowed_extensions": "jpg"})
+    config.update({"allowed_extensions": ["jpg"]})
     main()
     # check synced images
     assert not os.path.exists(os.path.join(driver_dir, "img1.png"))
@@ -114,10 +111,7 @@ def test_sync(mc):
 
     # enable references updates
     config.update({
-        'REFERENCE__FILE': "survey.gpkg",
-        'REFERENCE__TABLE': "notes",
-        'REFERENCE__LOCAL_PATH_COLUMN': "photo",
-        'REFERENCE__DRIVER_PATH_COLUMN': "ext_url",
+        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"}]
     })
 
     main()
@@ -128,9 +122,9 @@ def test_sync(mc):
     # check references have been changed and pushed
     project_info = mc.project_info(full_project_name)
     assert project_info["version"] == "v2"
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.reference.file))
+    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
     gpkg_cur = gpkg_conn.cursor()
-    sql = f"SELECT count(*) FROM {config.reference.table} WHERE {config.reference.driver_path_column}='{copied_file}'"
+    sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 1
     shutil.rmtree(work_project_dir)
@@ -151,16 +145,16 @@ def test_sync(mc):
     assert project_info["version"] == "v3"
     moved_file = next((f for f in project_info["files"] if f["path"] == "images/img2.jpg"), None)
     assert not moved_file
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.reference.file))
+    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
     gpkg_cur = gpkg_conn.cursor()
-    sql = f"SELECT count(*) FROM {config.reference.table} WHERE {config.reference.local_path_column} is Null AND {config.reference.driver_path_column}='{copied_file}'"
+    sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].local_path_column} is Null AND {config.references[0].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 1
     shutil.rmtree(work_project_dir)
     shutil.rmtree(driver_dir)
 
     # change mode to .png and also base project path to 'images' - nothing should be done
-    config.update({"allowed_extensions": "png", "base_path": "images"})
+    config.update({"allowed_extensions": ["png"], "base_path": "images"})
     main()
     # check synced images
     copied_file = os.path.join(driver_dir, "images", "img1.png")
@@ -188,12 +182,9 @@ def test_pull_and_sync(mc):
         'DRIVER': "local",
         'LOCAL__DEST': driver_dir,
         'OPERATION_MODE': "copy",
-        "ALLOWED_EXTENSIONS": "png,jpg",
+        "ALLOWED_EXTENSIONS": ["png","jpg"],
         "BASE_PATH": None,
-        'REFERENCE__FILE': None,
-        'REFERENCE__TABLE': None,
-        'REFERENCE__LOCAL_PATH_COLUMN': None,
-        'REFERENCE__DRIVER_PATH_COLUMN': None
+        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
     })
     # initial run
     main()
@@ -235,10 +226,7 @@ def test_minio_backend(mc):
         'MERGIN__PROJECT_NAME': full_project_name,
         'PROJECT_WORKING_DIR': work_project_dir,
         'OPERATION_MODE': "copy",
-        'REFERENCE__FILE': None,
-        'REFERENCE__TABLE': None,
-        'REFERENCE__LOCAL_PATH_COLUMN': None,
-        'REFERENCE__DRIVER_PATH_COLUMN': None,
+        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
         'DRIVER': "minio",
         'MINIO__ENDPOINT': MINIO_URL,
         'MINIO__ACCESS_KEY': MINIO_ACCESS_KEY,
@@ -268,7 +256,7 @@ def test_sync_failures(mc):
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
     prepare_mergin_project(mc, project_name)
     config.update({
-        'ALLOWED_EXTENSIONS': "png,jpg",
+        'ALLOWED_EXTENSIONS': ["png","jpg"],
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
@@ -277,11 +265,7 @@ def test_sync_failures(mc):
         'DRIVER': "local",
         'LOCAL__DEST': driver_dir,
         'OPERATION_MODE': "copy",
-        'REFERENCE__FILE': None,
-        'REFERENCE__TABLE': None,
-        'REFERENCE__LOCAL_PATH_COLUMN': None,
-        'REFERENCE__DRIVER_PATH_COLUMN': None
-
+        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
     })
     driver = LocalDriver(config)
     files_to_sync = mc_download(mc)
@@ -302,15 +286,14 @@ def test_sync_failures(mc):
 
     # incorrect gpkg details for reference table
     config.update({
-        'REFERENCE__FILE': "survey.gpkg",
-        'REFERENCE__TABLE': "notes_error",
-        'REFERENCE__LOCAL_PATH_COLUMN': "photo",
-        'REFERENCE__DRIVER_PATH_COLUMN': "ext_url"
+        'REFERENCES': [{"file": "survey.gpkg", "table": "notes_error", "local_path_column": "photo", "driver_path_column": "ext_url"}],
     })
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
     assert "SQLITE error" in exc.value.args[0]
-    config.update({'REFERENCE__TABLE': "notes"})
+    config.update({
+        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"}],
+    })
 
     # introduce some unknown local file
     shutil.copyfile(os.path.join(work_project_dir, "survey.gpkg"), os.path.join(work_project_dir, "new.gpkg"))
@@ -326,3 +309,49 @@ def test_sync_failures(mc):
     # check synced images
     assert not os.path.exists(os.path.join(driver_dir, "img1.png"))
     assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
+
+def test_multiple_tables(mc):
+    project_name = "mediasync_test_multiple"
+    full_project_name = API_USER + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
+    driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, project_name)
+
+    # patch config to fit testing purposes
+    config.update({
+        'ALLOWED_EXTENSIONS': ["png"],
+        'MERGIN__USERNAME': API_USER,
+        'MERGIN__PASSWORD': USER_PWD,
+        'MERGIN__URL': SERVER_URL,
+        'MERGIN__PROJECT_NAME': full_project_name,
+        'PROJECT_WORKING_DIR': work_project_dir,
+        'DRIVER': "local",
+        'LOCAL__DEST': driver_dir,
+        'OPERATION_MODE': "copy",
+        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"},
+                       {"file": "survey.gpkg", "table": "photos", "local_path_column": "photo", "driver_path_column": "ext_url"}]
+    })
+
+    main()
+    # check synced images
+    assert os.path.exists(os.path.join(driver_dir, "img1.png"))
+
+    # check references have been changed and pushed
+    project_info = mc.project_info(full_project_name)
+    assert project_info["version"] == "v2"
+
+    copied_file = os.path.join(driver_dir, "img1.png")
+    # check that both tables were updated
+    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
+    gpkg_cur = gpkg_conn.cursor()
+    sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].driver_path_column}='{copied_file}'"
+    gpkg_cur.execute(sql)
+    assert gpkg_cur.fetchone()[0] == 1
+    # check that both tables were updated
+    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[1].file))
+    gpkg_cur = gpkg_conn.cursor()
+    sql = f"SELECT count(*) FROM {config.references[1].table} WHERE {config.references[1].driver_path_column}='{copied_file}'"
+    gpkg_cur.execute(sql)
+    assert gpkg_cur.fetchone()[0] == 1

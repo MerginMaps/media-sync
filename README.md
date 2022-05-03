@@ -7,6 +7,9 @@ subsequently removed from mergin project (on cloud).
 
 Also user can choose whether references to media files should be updated.
 
+**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
+
+
 ### Quick start
 
 Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin project to your MinIO/S3 bucket.
@@ -37,10 +40,7 @@ docker run -it \
   -e MERGIN__PROJECT_NAME=john/my_project \
   -e LOCAL__DEST=/data \
   -e OPERATION_MODE=move \
-  -e REFERENCE__FILE=my_survey.gpkg \
-  -e REFERENCE__TABLE=my_table \
-  -e REFERENCE__LOCAL_PATH_FIELD=col_with_path \
-  -e REFERENCE__DRIVER_PATH_FIELD=col_with_ext_url \
+  -e REFERENCES = "[{file='my_survey.gpkg', table='my_table', local_path_column='col_with_path', driver_path_column='col_with_ext_url'}]" \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
@@ -63,7 +63,7 @@ docker run -it \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 
-**Please note double underscore `__` is used to separate [config](config.ini.default) group and item.**
+**Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
 ### Installation
 

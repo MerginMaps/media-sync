@@ -15,4 +15,4 @@ WORKDIR /mergin-media-sync
 COPY version.py config.py drivers.py media_sync.py media_sync_daemon.py ./
 
 # create deafult config file (can be overridden with env variables)
-COPY config.ini.default ./config.ini
+COPY config.yaml.default ./config.yaml

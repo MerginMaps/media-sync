@@ -130,5 +130,5 @@ dmypy.json
 
 .idea
 
-# custom local config.ini
-config.ini
+# custom local config.yaml
+config.yaml
