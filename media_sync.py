@@ -19,6 +19,11 @@ class MediaSyncError(Exception):
     pass
 
 
+def _quote_identifier(identifier):
+    """Quote identifiers"""
+    return "\"" + identifier + "\""
+
+
 def _get_project_version():
     """ Returns the current version of the project """
     mp = MerginProject(config.project_working_dir)
@@ -133,17 +138,17 @@ def _update_references(files):
             gpkg_conn.enable_load_extension(True)
             gpkg_cur = gpkg_conn.cursor()
             gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
-            for file, dest in files.items():
+            for file_path, dest in files.items():
                 # remove reference to the local path only in the move mode
                 if config.operation_mode == "move":
-                    sql = f"UPDATE {ref.table} " \
-                          f"SET {ref.driver_path_column}='{dest}', {ref.local_path_column}=Null " \
-                          f"WHERE {ref.local_path_column}='{file}'"
+                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
+                          f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column, {_quote_identifier(ref.local_path_column)}=Null " \
+                          f"WHERE {_quote_identifier(ref.local_path_column)}=:file_path"
                 elif config.operation_mode == "copy":
-                    sql = f"UPDATE {ref.table} " \
-                          f"SET {ref.driver_path_column}='{dest}' " \
-                          f"WHERE {ref.local_path_column}='{file}'"
-                gpkg_cur.execute(sql)
+                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
+                          f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column " \
+                          f"WHERE {_quote_identifier(ref.local_path_column)}=:file_path"
+                gpkg_cur.execute(sql, {"dest_column": dest, "file_path": file_path})
             gpkg_conn.commit()
             gpkg_conn.close()
         except sqlite3.OperationalError as e:

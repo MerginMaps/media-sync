@@ -331,7 +331,7 @@ def test_multiple_tables(mc):
         'LOCAL__DEST': driver_dir,
         'OPERATION_MODE': "copy",
         'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"},
-                       {"file": "survey.gpkg", "table": "photos", "local_path_column": "photo", "driver_path_column": "ext_url"}]
+                       {"file": "survey.gpkg", "table": "photos", "local_path_column": "123_photo", "driver_path_column": "ext_url"}]
     })
 
     main()
