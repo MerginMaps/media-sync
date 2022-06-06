@@ -1,9 +1,9 @@
 # mergin-media-sync
-Sync media files from Mergin projects to other storage backends. Currently, supported backend are local drive (mostly for testing)
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are local drive (mostly for testing)
 and MinIO (S3-like) backend.
 
 Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
-subsequently removed from mergin project (on cloud).
+subsequently removed from Mergin Maps project (on cloud).
 
 Also user can choose whether references to media files should be updated.
 
@@ -12,7 +12,7 @@ Also user can choose whether references to media files should be updated.
 
 ### Quick start
 
-Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin project to your MinIO/S3 bucket.
+Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin Maps project to your MinIO/S3 bucket.
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
@@ -26,7 +26,7 @@ To run the container, use a command like the following one:
   -e MERGIN__PROJECT_NAME=john/my_project \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
-The sync process will start, regularly checking Mergin service copy/move media files from a Mergin project to an external storage.
+The sync process will start, regularly checking Mergin Maps service copy/move media files from a Mergin Maps project to an external storage.
 Local drive is a default backend, you need to mount volume from host machine for data to persist.
 
 #### Update reference table in geopackage

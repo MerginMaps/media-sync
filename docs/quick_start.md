@@ -11,7 +11,7 @@ In this quick start guide you will set up one way synchronization between a new 
 Create a public bucket if you do not have one.
 
 ## 2. Create an empty mergin project
-Go to [Mergin](https://public.cloudmergin.com/) website and create a new blank project.
+Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project.
 
 ![new_project](images/new_proj.png)
 
@@ -27,11 +27,11 @@ Create a new QGIS project, add some layer (e.g. notes). Add few points and make 
 
 ![project](images/qgis_project.png)
 
-Upload your project to Mergin, either via web browser or [mergin plugin](https://github.com/lutraconsulting/qgis-mergin-plugin).
+Upload your project to Mergin Maps, either via web browser or [Mergin plugin](https://github.com/lutraconsulting/qgis-mergin-plugin).
 
 ![plugin](images/new_proj3.png)
 
-You have now your project ready in Mergin.
+You have now your project ready in Mergin Maps.
 
 
 ## 4. Start syncing
@@ -56,7 +56,7 @@ $ sudo docker run -it \
   -e REFERENCE__DRIVER_PATH_FIELD=external_url \
   mergin-media-sync python3 media_sync_daemon.py
 ```
-and you should see photos copied from your Mergin project to the bucket:
+and you should see photos copied from your Mergin Maps project to the bucket:
 
 ![bucket](images/bucket.png)
 
