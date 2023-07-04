@@ -16,6 +16,7 @@ Not sure where to start? Check out our [quick start](docs/quick_start.md) guide 
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
+![Overview](docs/images/overview.png)
 
 #### Running with Docker
 To run the container, use a command like the following one:

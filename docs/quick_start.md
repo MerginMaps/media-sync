@@ -10,6 +10,15 @@ In this quick start guide you will set up one way synchronization between a new 
 ## 1. Create a bucket
 Create a public bucket if you do not have one.
 
+Alternatively you can run MinIO locally in docker by
+
+```
+docker run --name some-minio \
+-v $(pwd)/minio_data:/data \
+-p 9000:9000 -p 9001:9001 \
+-d minio/minio server /data --console-address ":9001"
+```
+
 ## 2. Create an empty mergin project
 Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project.
 
@@ -33,9 +42,10 @@ Upload your project to Mergin Maps, either via web browser or [Mergin plugin](ht
 
 You have now your project ready in Mergin Maps.
 
-
 ## 4. Start syncing
 Download and run media-sync docker image with configuration based on above (you will need to tweak that):
+
+Note that you may need to escape some characters in your password or username
 
 ```
 $ sudo docker run -it \
@@ -50,10 +60,7 @@ $ sudo docker run -it \
   -e MINIO__BUCKET=destination-bucket \
   -e MINIO__SECRET=1 \
   -e OPERATION_MODE=copy \
-  -e REFERENCE__FILE=survey.gpkg \
-  -e REFERENCE__TABLE=notes \
-  -e REFERENCE__LOCAL_PATH_FIELD=photo \
-  -e REFERENCE__DRIVER_PATH_FIELD=external_url \
+  -e REFERENCES="[{file='survey.gpkg', table='notes', local_path_column='photo', driver_path_column='external_url'}]" \
   mergin-media-sync python3 media_sync_daemon.py
 ```
 and you should see photos copied from your Mergin Maps project to the bucket:
