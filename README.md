@@ -1,4 +1,4 @@
-# mergin-media-sync
+# Mergin Maps Media Sync
 Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are local drive (mostly for testing)
 and MinIO (S3-like) backend.
 
@@ -8,7 +8,6 @@ subsequently removed from Mergin Maps project (on cloud).
 Also user can choose whether references to media files should be updated.
 
 **IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
-
 
 ### Quick start
 
