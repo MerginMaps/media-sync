@@ -67,6 +67,8 @@ docker run -it \
 
 **Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
+The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
+
 ### Installation
 
 #### Docker

@@ -71,5 +71,7 @@ and your references in QGIS project updated:
 
 ![bucket](images/qgis_proj2.png)
 
-In order to stop syncing simply stop docker container.
+If you wish to specify folder within the bucket to store the files you can specify `MINIO__BUCKET_SUBPATH` variable
+ie. `MINIO__BUCKET_SUBPATH=MyFolder` to store files in `MyFolder` instead of root of the bucket.
 
+In order to stop syncing simply stop docker container.
