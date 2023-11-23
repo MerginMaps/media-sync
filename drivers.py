@@ -69,6 +69,12 @@ class MinioDriver(Driver):
             bucket_found = self.client.bucket_exists(self.bucket)
             if not bucket_found:
                 self.client.make_bucket(self.bucket)
+
+            self.bucket_subpath = None
+            if hasattr(config.minio, "bucket_subpath"):
+                if config.minio.bucket_subpath:
+                    self.bucket_subpath = config.minio.bucket_subpath
+
             # construct base url for bucket
             scheme = "https://" if config.as_bool("minio.secure") else "http://"
             self.base_url = scheme + config.minio.endpoint + '/' + self.bucket
@@ -76,6 +82,8 @@ class MinioDriver(Driver):
             raise DriverError("MinIO driver init error: " + str(e))
 
     def upload_file(self, src, obj_path):
+        if self.bucket_subpath:
+            obj_path = f"{self.bucket_subpath}/{obj_path}"
         try:
             res = self.client.fput_object(self.bucket, obj_path, src)
             dest = self.base_url + '/' + res.object_name
