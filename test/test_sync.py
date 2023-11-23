@@ -245,6 +245,34 @@ def test_minio_backend(mc):
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
 
+    cleanup(mc, full_project_name, [work_project_dir])
+    prepare_mergin_project(mc, project_name)
+
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
+            "DRIVER": "minio",
+            "MINIO__ENDPOINT": MINIO_URL,
+            "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
+            "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
+            "MINIO__BUCKET": "test1",
+            "MINIO__BUCKET_SUBPATH": "subPath"
+        }
+    )
+
+    main()
+    # check synced images
+    driver = MinioDriver(config)
+    minio_objects = [o.object_name for o in driver.client.list_objects("test1", recursive=True)]
+    assert "subPath/img1.png" in minio_objects
+    assert "subPath/images/img2.jpg" in minio_objects
+
 
 def test_sync_failures(mc):
     """ Test common sync failures """
