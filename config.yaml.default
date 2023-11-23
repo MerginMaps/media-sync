@@ -22,6 +22,7 @@ minio:
   bucket: test
   secure: false
   region:
+  bucket_subpath:
 
 references:
   - file: survey.gpkg

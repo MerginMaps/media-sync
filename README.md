@@ -61,6 +61,7 @@ docker run -it \
   -e MINIO__SECRET_KEY=secret-key \
   -e MINIO__BUCKET=destination-bucket \
   -e MINIO__SECURE=1 \
+  -e MINIO__BUCKET_SUBPATH=SubFolder \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 
