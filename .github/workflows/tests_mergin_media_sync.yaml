@@ -1,0 +1,74 @@
+name: Tests for Mergin Maps Media Sync
+
+on:
+  push:
+    paths:
+    - "test/**"
+    - "**.py"
+    - ".github/workflows/tests_mergin_media_sync.yaml"
+
+jobs:
+
+  Tests-for-Mergin-Maps-Media-Sync:
+
+    runs-on: ubuntu-latest
+
+    services:
+      minio:
+        image: minio/minio:latest
+        ports:
+          - 9000:9000
+        env:
+          MINIO_ROOT_USER: minio
+          MINIO_ROOT_PASSWORD: minio123
+          MINIO_CI_CD: on
+          MINIO_ACCESS_KEY: minioaccesskey
+          MINIO_SECRET_KEY: miniosecretkey
+        options: --name=minio --health-cmd "curl http://localhost:9000/minio/health/live"
+
+    steps:
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2 minio
+
+      - name: Test MinIO
+        shell: python3
+        run: |
+          from minio import Minio
+
+          client = Minio(
+              endpoint="127.0.0.1:9000",
+              access_key="minioaccesskey",
+              secret_key="miniosecretkey",
+              secure=False,
+          )
+
+          print(client.list_buckets())
+
+      # - name: Install Geodiff
+      #   run: |
+      #     sudo apt-get install libsqlite3-dev libpq-dev
+      #     git clone https://github.com/MerginMaps/geodiff.git
+      #     cd geodiff
+      #     mkdir build && cd build
+      #     cmake -DWITH_POSTGRESQL=TRUE ../geodiff
+      #     sudo make install
+      #     sudo cp geodiff /usr/local/bin 
+
+      # - name: Check Geodiff version    
+      #   run: geodiff version
+
+      # - name: Checkout
+      #   uses: actions/checkout@v4
+
+      # - name: Run tests
+      #   run: |
+      #     pytest test --cov=. --cov-report=term-missing:skip-covered -vv
+
+      # - name: Check files using the black formatter
+      #   uses: rickstaa/action-black@v1
+      #   id: action_black
+      #   with:
+      #     black_args: "."
