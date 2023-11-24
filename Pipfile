@@ -9,8 +9,8 @@ pytest-cov = "~=3.0"
 
 [packages]
 minio = "~=7.1"
-mergin-client = "==0.7.3"
+mergin-client = "==0.8.3"
 dynaconf = {extras = ["ini"],version = "~=3.1"}
 
 [requires]
-python_version = "3.8"
+python_version = "3"
