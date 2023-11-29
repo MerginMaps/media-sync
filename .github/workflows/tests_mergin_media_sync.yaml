@@ -7,24 +7,15 @@ on:
     - "**.py"
     - ".github/workflows/tests_mergin_media_sync.yaml"
 
+env:
+  TEST_MINIO_ACCESS_KEY: minioaccesskey
+  TEST_MINIO_SECRET_KEY: miniosecretkey
+
 jobs:
 
   Tests-for-Mergin-Maps-Media-Sync:
 
     runs-on: ubuntu-latest
-
-    services:
-      minio:
-        image: minio/minio:latest
-        ports:
-          - 9000:9000
-        env:
-          MINIO_ROOT_USER: minio
-          MINIO_ROOT_PASSWORD: minio123
-          MINIO_CI_CD: on
-          MINIO_ACCESS_KEY: minioaccesskey
-          MINIO_SECRET_KEY: miniosecretkey
-        options: --name=minio --health-cmd "curl http://localhost:9000/minio/health/live"
 
     steps:
 
@@ -33,15 +24,26 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2 minio
 
+      - name: Run MinIO Docker
+        run: |
+          docker run \
+          -p 127.0.0.1:9000:9000 \
+          -p 127.0.0.1:9001:9001 \
+          -e MINIO_ROOT_USER=$TEST_MINIO_ACCESS_KEY \
+          -e MINIO_ROOT_PASSWORD=$TEST_MINIO_SECRET_KEY \
+          --entrypoint /bin/bash \
+          minio/minio:latest -c "minio server /data --console-address :9001 --address :9000"
+
       - name: Test MinIO
         shell: python3
         run: |
+          import os
           from minio import Minio
 
           client = Minio(
               endpoint="127.0.0.1:9000",
-              access_key="minioaccesskey",
-              secret_key="miniosecretkey",
+              access_key=os.environ.get('TEST_MINIO_ACCESS_KEY'),
+              secret_key=os.environ.get('TEST_MINIO_SECRET_KEY'),
               secure=False,
           )
 
