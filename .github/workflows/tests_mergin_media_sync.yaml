@@ -35,7 +35,7 @@ jobs:
           minio/minio:latest -c "minio server /data --console-address :9001 --address :9000"
 
       - name: Test MinIO
-        shell: python3
+        shell: python3 {0}
         run: |
           import os
           from minio import Minio
