@@ -36,7 +36,7 @@ def cleanup(mc, project, dirs):
     """ Cleanup leftovers from previous test if needed such as remote project and local directories """
     try:
         print("Deleting project on Mergin server: " + project)
-        mc.delete_project(project)
+        mc.delete_project_now(project)
     except ClientError as e:
         print("Deleting project error: " + str(e))
     for d in dirs:
