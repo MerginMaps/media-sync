@@ -8,6 +8,11 @@ on:
     - ".github/workflows/tests_mergin_media_sync.yaml"
 
 env:
+  TEST_MERGIN_URL: https://test.dev.merginmaps.com
+  TEST_API_USERNAME: test_media_sync
+  TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
+  TEST_API_WORKSPACE: test-media-sync
+  TEST_MINIO_URL: 127.0.0.1:9000
   TEST_MINIO_ACCESS_KEY: minioaccesskey
   TEST_MINIO_SECRET_KEY: miniosecretkey
 
@@ -48,6 +53,16 @@ jobs:
           )
 
           print(client.list_buckets())
+
+      - name: Test Mergin Client
+        shell: python3 {0}
+        run: |
+          import os
+          from mergin import MerginClient
+
+          MerginClient(os.environ.get('TEST_MERGIN_URL'), 
+                       login=os.environ.get('TEST_API_USERNAME'), 
+                       password=os.environ.get('TEST_API_PASSWORD'))
 
       # - name: Install Geodiff
       #   run: |
