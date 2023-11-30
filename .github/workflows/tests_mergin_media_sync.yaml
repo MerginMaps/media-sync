@@ -60,10 +60,12 @@ jobs:
           import os
           from mergin import MerginClient
 
-          MerginClient(os.environ.get('TEST_MERGIN_URL'), 
-                       login=os.environ.get('TEST_API_USERNAME'), 
-                       password=os.environ.get('TEST_API_PASSWORD'))
+          mc = MerginClient(os.environ.get('TEST_MERGIN_URL'), 
+                            login=os.environ.get('TEST_API_USERNAME'), 
+                            password=os.environ.get('TEST_API_PASSWORD'))
 
+          print(mc.projects_list())
+    
       # - name: Install Geodiff
       #   run: |
       #     sudo apt-get install libsqlite3-dev libpq-dev
