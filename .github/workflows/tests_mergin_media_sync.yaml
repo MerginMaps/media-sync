@@ -64,7 +64,7 @@ jobs:
                             login=os.environ.get('TEST_API_USERNAME'), 
                             password=os.environ.get('TEST_API_PASSWORD'))
 
-          print(mc.projects_list())
+          print(mc.projects_list(only_namespace=True, namespace=os.environ.get('TEST_API_WORKSPACE')))
     
       # - name: Install Geodiff
       #   run: |
