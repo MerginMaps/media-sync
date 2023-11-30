@@ -21,6 +21,7 @@ API_USER = os.environ.get('TEST_API_USERNAME')
 USER_PWD = os.environ.get('TEST_API_PASSWORD')
 TMP_DIR = tempfile.gettempdir()
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_data')
+WORKSPACE = os.environ.get("TEST_API_WORKSPACE")
 MINIO_URL = os.environ.get('TEST_MINIO_URL')
 MINIO_ACCESS_KEY = os.environ.get('TEST_MINIO_ACCESS_KEY')
 MINIO_SECRET_KEY = os.environ.get('TEST_MINIO_SECRET_KEY')
@@ -47,7 +48,7 @@ def cleanup(mc, project, dirs):
 def prepare_mergin_project(mc, project_name):
     # copy test data to some temp dir, upload to mergin server and clean up working dir
     project_dir = os.path.join(TMP_DIR, project_name + '_create')
-    cleanup(mc, API_USER + "/" + project_name, [project_dir])
+    cleanup(mc, project_name, [project_dir])
 
     shutil.copytree(os.path.join(TEST_DATA_DIR), project_dir)
     mc.create_project_and_push(project_name, project_dir)
@@ -63,12 +64,12 @@ def test_sync(mc):
     - switch to .png images and enable lookup only in /images subdirectory -> nothing to do
     """
     project_name = "mediasync_test"
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
     driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc,  full_project_name)
 
     # patch config to fit testing purposes
     config.update({
@@ -166,12 +167,12 @@ def test_sync(mc):
 def test_pull_and_sync(mc):
     """ Test media sync if mergin project is ahead of locally downloaded one """
     project_name = "mediasync_test_pull"
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')
     driver_dir = os.path.join(TMP_DIR, project_name + '_driver')
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     config.update({
         'MERGIN__USERNAME': API_USER,
@@ -212,11 +213,11 @@ def test_pull_and_sync(mc):
 def test_minio_backend(mc):
     """ Test media sync connected to minio backend (needs local service running) """
     project_name = "mediasync_test_minio"
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')
 
     cleanup(mc, full_project_name, [work_project_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
     config.update({
@@ -246,7 +247,7 @@ def test_minio_backend(mc):
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
 
     cleanup(mc, full_project_name, [work_project_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     config.update(
         {
@@ -277,12 +278,13 @@ def test_minio_backend(mc):
 def test_sync_failures(mc):
     """ Test common sync failures """
     project_name = "mediasync_fail"
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
     driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
+    
     config.update({
         'ALLOWED_EXTENSIONS': ["png","jpg"],
         'MERGIN__USERNAME': API_USER,
@@ -340,12 +342,12 @@ def test_sync_failures(mc):
 
 def test_multiple_tables(mc):
     project_name = "mediasync_test_multiple"
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
     driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
     config.update({
