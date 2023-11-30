@@ -65,25 +65,26 @@ jobs:
                             password=os.environ.get('TEST_API_PASSWORD'))
 
           print(mc)
-      # - name: Install Geodiff
-      #   run: |
-      #     sudo apt-get install libsqlite3-dev libpq-dev
-      #     git clone https://github.com/MerginMaps/geodiff.git
-      #     cd geodiff
-      #     mkdir build && cd build
-      #     cmake -DWITH_POSTGRESQL=TRUE ../geodiff
-      #     sudo make install
-      #     sudo cp geodiff /usr/local/bin 
 
-      # - name: Check Geodiff version    
-      #   run: geodiff version
+      - name: Install Geodiff
+        run: |
+          sudo apt-get install libsqlite3-dev libpq-dev
+          git clone https://github.com/MerginMaps/geodiff.git
+          cd geodiff
+          mkdir build && cd build
+          cmake -DWITH_POSTGRESQL=TRUE ../geodiff
+          sudo make install
+          sudo cp geodiff /usr/local/bin 
 
-      # - name: Checkout
-      #   uses: actions/checkout@v4
+      - name: Check Geodiff version    
+        run: geodiff version
 
-      # - name: Run tests
-      #   run: |
-      #     pytest test --cov=. --cov-report=term-missing:skip-covered -vv
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          pytest test --cov=. --cov-report=term-missing:skip-covered -vv
 
       # - name: Check files using the black formatter
       #   uses: rickstaa/action-black@v1
