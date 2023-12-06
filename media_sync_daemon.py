@@ -6,18 +6,43 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import argparse
+import sys
 import datetime
 import os
 import time
 from drivers import DriverError, create_driver
 from media_sync import create_mergin_client, mc_download, media_sync_push, mc_pull, MediaSyncError
-from config import config, validate_config, ConfigError
+from config import config, validate_config, ConfigError, update_config_path
 from version import __version__
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        prog="media_sync_deamon.py",
+        description="Synchronization tool for media files in Mergin Maps project to other backends.",
+        epilog="www.merginmaps.com",
+    )
+
+    parser.add_argument(
+        "config_file",
+        nargs="?",
+        default="config.yaml",
+        help="Path to file with configuration. Default value is config.yaml in current working directory.",
+    )
+
+    args = parser.parse_args()
+
     print(f"== Starting Mergin Media Sync daemon version {__version__} ==")
+
+    try:
+        update_config_path(args.config_file)
+    except IOError as e:
+        print("Error:" + str(e))
+        sys.exit(1)
+
     sleep_time = config.as_int("daemon.sleep_time")
+
     try:
         validate_config(config)
     except ConfigError as e:
