@@ -39,11 +39,12 @@ jobs:
           --entrypoint /bin/bash \
           minio/minio:latest -c "minio server /data --console-address :9001 --address :9000"
 
-      - name: Test MinIO
+      - name: Test MinIO and Mergin Client
         shell: python3 {0}
         run: |
           import os
           from minio import Minio
+          from mergin import MerginClient
 
           client = Minio(
               endpoint="127.0.0.1:9000",
@@ -52,19 +53,9 @@ jobs:
               secure=False,
           )
 
-          print(client.list_buckets())
-
-      - name: Test Mergin Client
-        shell: python3 {0}
-        run: |
-          import os
-          from mergin import MerginClient
-
           mc = MerginClient(os.environ.get('TEST_MERGIN_URL'), 
                             login=os.environ.get('TEST_API_USERNAME'), 
                             password=os.environ.get('TEST_API_PASSWORD'))
-
-          print(mc)
 
       - name: Install Geodiff
         run: |
