@@ -19,7 +19,7 @@ from version import __version__
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="media_sync_deamon.py",
+        prog="media_sync_daemon.py",
         description="Synchronization tool for media files in Mergin Maps project to other backends.",
         epilog="www.merginmaps.com",
     )
