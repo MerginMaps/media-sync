@@ -60,19 +60,6 @@ jobs:
                             login=os.environ.get('TEST_API_USERNAME'), 
                             password=os.environ.get('TEST_API_PASSWORD'))
 
-      - name: Install Geodiff
-        run: |
-          sudo apt-get install libsqlite3-dev libpq-dev
-          git clone https://github.com/MerginMaps/geodiff.git
-          cd geodiff
-          mkdir build && cd build
-          cmake -DWITH_POSTGRESQL=TRUE ../geodiff
-          sudo make install
-          sudo cp geodiff /usr/local/bin 
-
-      - name: Check Geodiff version    
-        run: geodiff version
-
       - name: Checkout
         uses: actions/checkout@v4
 
