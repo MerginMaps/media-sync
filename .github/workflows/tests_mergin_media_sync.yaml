@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install pipenv
+          pipenv shell
           pipenv install
 
       - name: Run MinIO Docker
@@ -47,7 +48,7 @@ jobs:
           minio/minio:latest -c "minio server /data --console-address :9001 --address :9000"
 
       - name: Test MinIO and Mergin Client
-        shell: python3 {0}
+        shell: pipenv run python {0}
         run: |
           import os
           from minio import Minio
@@ -66,7 +67,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest test --cov=. --cov-report=term-missing:skip-covered -vv
+          pipenv run pytest test --cov=. --cov-report=term-missing:skip-covered -vv
 
       # - name: Check files using the black formatter
       #   uses: rickstaa/action-black@v1
