@@ -155,6 +155,9 @@ def test_pull_and_sync(mc):
 
     # let's update project on server - create new .png file and modify reference .gpkg file
     project_dir = os.path.join(TMP_DIR, project_name + '_create')
+    if os.path.exists(project_dir):
+        shutil.rmtree(project_dir)
+    shutil.copytree(work_project_dir, project_dir)
     shutil.copyfile(os.path.join(project_dir, 'img1.png'), os.path.join(project_dir, 'img_new.png'))
     gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'survey.gpkg'))
     gpkg_conn.enable_load_extension(True)
