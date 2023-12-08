@@ -5,17 +5,11 @@ Copyright (C) 2021 Lutra Consulting
 
 License: MIT
 """
-import os
 import pytest
 
 from config import config, ConfigError, validate_config
 
-SERVER_URL = os.environ.get('TEST_MERGIN_URL')
-API_USER = os.environ.get('TEST_API_USERNAME')
-USER_PWD = os.environ.get('TEST_API_PASSWORD')
-MINIO_URL = os.environ.get('TEST_MINIO_URL')
-MINIO_ACCESS_KEY = os.environ.get('TEST_MINIO_ACCESS_KEY')
-MINIO_SECRET_KEY = os.environ.get('TEST_MINIO_SECRET_KEY')
+from .conftest import SERVER_URL, API_USER, USER_PWD, MINIO_URL, MINIO_SECRET_KEY, MINIO_ACCESS_KEY
 
 
 def _reset_config():
@@ -33,7 +27,8 @@ def _reset_config():
         'MINIO__ACCESS_KEY': MINIO_ACCESS_KEY,
         'MINIO__SECRET_KEY': MINIO_SECRET_KEY,
         'MINIO__BUCKET': 'test',
-        'REFERENCES': [{"file": "survey.gpkg", "table": "table", "local_path_column": "local_path_column", "driver_path_column": "driver_path_column"}]
+        'REFERENCES': [{"file": "survey.gpkg", "table": "table", "local_path_column": "local_path_column", "driver_path_column": "driver_path_column"}],
+        "BASE_PATH": ""
     })
 
 
