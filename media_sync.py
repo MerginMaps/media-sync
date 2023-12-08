@@ -52,7 +52,7 @@ def _get_media_sync_files(files):
     allowed_extensions = config.allowed_extensions
     files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip('.') in allowed_extensions]
     # filter out files which are not under particular directory in mergin project
-    if config.base_path:
+    if "base_path" in config and config.base_path:
         filtered_files = [f for f in files_to_upload if f["path"].startswith(config.base_path)]
         files_to_upload = filtered_files
     return files_to_upload
