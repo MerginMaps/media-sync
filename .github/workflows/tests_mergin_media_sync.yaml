@@ -27,10 +27,14 @@ jobs:
       - name: Install Spatialite
         run: sudo apt-get install -y libsqlite3-mod-spatialite
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2 minio
+          python3 -m pip install pipenv
+          pipenv install
 
       - name: Run MinIO Docker
         run: |
@@ -59,9 +63,6 @@ jobs:
           mc = MerginClient(os.environ.get('TEST_MERGIN_URL'), 
                             login=os.environ.get('TEST_API_USERNAME'), 
                             password=os.environ.get('TEST_API_PASSWORD'))
-
-      - name: Checkout
-        uses: actions/checkout@v4
 
       - name: Run tests
         run: |
