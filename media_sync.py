@@ -27,7 +27,7 @@ def _quote_identifier(identifier):
 def _get_project_version():
     """ Returns the current version of the project """
     mp = MerginProject(config.project_working_dir)
-    return mp.metadata["version"]
+    return mp.version()
 
 
 def _check_has_working_dir():
@@ -97,13 +97,12 @@ def mc_pull(mc):
     _check_pending_changes()
 
     mp = MerginProject(config.project_working_dir)
-    project_full_name = f'{mp.metadata["namespace"]}/{mp.metadata["name"]}'
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        project_info = mc.project_info(project_full_name, since=local_version)
-        projects = mc.get_projects_by_names([project_full_name])
-        server_version = projects[project_full_name]["version"]
+        project_info = mc.project_info(mp.project_full_name(), since=local_version)
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise MediaSyncError("Mergin client error: " + str(e))
