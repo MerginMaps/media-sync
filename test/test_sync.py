@@ -385,14 +385,28 @@ def test_multiple_tables(mc):
     assert gpkg_cur.fetchone()[0] == 1
 
 
-def test_sync_without_references(mc: MerginClient):
+@pytest.mark.parametrize(
+    "project_name,config_update",
+    [
+        (
+            "mediasync_test_without_references",
+            {},
+        ),
+        (
+            "mediasync_test_with_references_none",
+            {"REFERENCES": None},
+        ),
+        (
+            "mediasync_test_with_references_empty_list",
+            {"REFERENCES": []},
+        ),
+    ],
+)
+def test_sync_without_references(mc: MerginClient, project_name: str, config_update: dict):
     """
     Test media sync running sync without references. It should not fail and just copy files.
     The test just checks that main() runs without errors.
     """
-
-    # no references
-    project_name = "mediasync_test_without_references"
     full_project_name = API_USER + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
     driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
@@ -414,49 +428,6 @@ def test_sync_without_references(mc: MerginClient):
             "BASE_PATH": None,
         }
     )
-
-    main()
-
-    # refence set to NONE
-    project_name = "mediasync_test_with_references_none"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
-
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, full_project_name)
-
-    config.update(
-        {
-            "REFERENCES": None,
-        }
-    )
-
-    main()
-
-    # refences set to empty list
-    project_name = "mediasync_test_with_references_empty_list"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
-
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, full_project_name)
-
-    config.update(
-        {
-            "ALLOWED_EXTENSIONS": ["png", "jpg"],
-            "MERGIN__USERNAME": API_USER,
-            "MERGIN__PASSWORD": USER_PWD,
-            "MERGIN__URL": SERVER_URL,
-            "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
-            "DRIVER": "local",
-            "LOCAL__DEST": driver_dir,
-            "OPERATION_MODE": "copy",
-            "BASE_PATH": None,
-            "REFERENCES": [],
-        }
-    )
+    config.update(config_update)
 
     main()
