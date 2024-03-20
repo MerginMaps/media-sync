@@ -22,12 +22,12 @@ class Driver:
         self.config = config
 
     def upload_file(self, src, obj_path):
-        """ Copy object to destination and return path """
+        """Copy object to destination and return path"""
         raise NotImplementedError
 
 
 class LocalDriver(Driver):
-    """ Driver to work with local drive, for testing purpose mainly """
+    """Driver to work with local drive, for testing purpose mainly"""
 
     def __init__(self, config):
         super(LocalDriver, self).__init__(config)
@@ -52,7 +52,7 @@ class LocalDriver(Driver):
 
 
 class MinioDriver(Driver):
-    """ Driver to handle connection to minio-like server """
+    """Driver to handle connection to minio-like server"""
 
     def __init__(self, config):
         super(MinioDriver, self).__init__(config)
@@ -63,7 +63,7 @@ class MinioDriver(Driver):
                 access_key=config.minio.access_key,
                 secret_key=config.minio.secret_key,
                 secure=config.as_bool("minio.secure"),
-                region=config.minio.region
+                region=config.minio.region,
             )
             self.bucket = config.minio.bucket
             bucket_found = self.client.bucket_exists(self.bucket)
@@ -77,7 +77,7 @@ class MinioDriver(Driver):
 
             # construct base url for bucket
             scheme = "https://" if config.as_bool("minio.secure") else "http://"
-            self.base_url = scheme + config.minio.endpoint + '/' + self.bucket
+            self.base_url = scheme + config.minio.endpoint + "/" + self.bucket
         except S3Error as e:
             raise DriverError("MinIO driver init error: " + str(e))
 
@@ -86,14 +86,14 @@ class MinioDriver(Driver):
             obj_path = f"{self.bucket_subpath}/{obj_path}"
         try:
             res = self.client.fput_object(self.bucket, obj_path, src)
-            dest = self.base_url + '/' + res.object_name
+            dest = self.base_url + "/" + res.object_name
         except S3Error as e:
             raise DriverError("MinIO driver error: " + str(e))
         return dest
 
 
 def create_driver(config):
-    """ Create driver object based on type defined in config """
+    """Create driver object based on type defined in config"""
     driver = None
     if config.driver == "local":
         driver = LocalDriver(config)
