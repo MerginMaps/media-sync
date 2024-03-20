@@ -32,11 +32,15 @@ def _get_project_version():
 
 def _check_has_working_dir():
     if not os.path.exists(config.project_working_dir):
-        raise MediaSyncError("The project working directory does not exist: " + config.project_working_dir)
+        raise MediaSyncError(
+            "The project working directory does not exist: "
+            + config.project_working_dir
+        )
 
     if not os.path.exists(os.path.join(config.project_working_dir, ".mergin")):
         raise MediaSyncError(
-            "The project working directory does not seem to contain Mergin project: " + config.project_working_dir
+            "The project working directory does not seem to contain Mergin project: "
+            + config.project_working_dir
         )
 
 
@@ -46,17 +50,24 @@ def _check_pending_changes():
     status_push = mp.get_push_changes()
     if status_push["added"] or status_push["updated"] or status_push["removed"]:
         raise MediaSyncError(
-            "There are pending changes in the local directory - please review and push manually! " + str(status_push)
+            "There are pending changes in the local directory - please review and push manually! "
+            + str(status_push)
         )
 
 
 def _get_media_sync_files(files):
     """Return files relevant to media sync from project files"""
     allowed_extensions = config.allowed_extensions
-    files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip(".") in allowed_extensions]
+    files_to_upload = [
+        f
+        for f in files
+        if os.path.splitext(f["path"])[1].lstrip(".") in allowed_extensions
+    ]
     # filter out files which are not under particular directory in mergin project
     if "base_path" in config and config.base_path:
-        filtered_files = [f for f in files_to_upload if f["path"].startswith(config.base_path)]
+        filtered_files = [
+            f for f in files_to_upload if f["path"].startswith(config.base_path)
+        ]
         files_to_upload = filtered_files
     return files_to_upload
 
@@ -130,7 +141,9 @@ def mc_pull(mc):
         raise MediaSyncError("Mergin client error on pull: " + str(e))
 
     print("Pulled new version from Mergin: " + _get_project_version())
-    files_to_upload = _get_media_sync_files(status_pull["added"] + status_pull["updated"])
+    files_to_upload = _get_media_sync_files(
+        status_pull["added"] + status_pull["updated"]
+    )
     return files_to_upload
 
 
@@ -148,7 +161,9 @@ def _update_references(files):
 
         print("Updating references ...")
         try:
-            gpkg_conn = sqlite3.connect(os.path.join(config.project_working_dir, ref.file))
+            gpkg_conn = sqlite3.connect(
+                os.path.join(config.project_working_dir, ref.file)
+            )
             gpkg_conn.enable_load_extension(True)
             gpkg_cur = gpkg_conn.cursor()
             gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
@@ -210,7 +225,9 @@ def media_sync_push(mc, driver, files):
         mp = MerginProject(config.project_working_dir)
         status_push = mp.get_push_changes()
         if status_push["added"]:
-            raise MediaSyncError("There are changes to be added - it should never happen")
+            raise MediaSyncError(
+                "There are changes to be added - it should never happen"
+            )
         if status_push["updated"] or status_push["removed"]:
             mc.push_project(config.project_working_dir)
             version = _get_project_version()

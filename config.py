@@ -23,7 +23,9 @@ class ConfigError(Exception):
 def validate_config(config):
     """Validate config - make sure values are consistent"""
 
-    if not (config.mergin.username and config.mergin.password and config.mergin.project_name):
+    if not (
+        config.mergin.username and config.mergin.password and config.mergin.project_name
+    ):
         raise ConfigError("Config error: Incorrect mergin settings")
 
     if config.driver not in ["local", "minio"]:
@@ -36,7 +38,10 @@ def validate_config(config):
         raise ConfigError("Config error: Incorrect Local driver settings")
 
     if config.driver == "minio" and not (
-        config.minio.endpoint and config.minio.access_key and config.minio.secret_key and config.minio.bucket
+        config.minio.endpoint
+        and config.minio.access_key
+        and config.minio.secret_key
+        and config.minio.bucket
     ):
         raise ConfigError("Config error: Incorrect MinIO driver settings")
 
@@ -50,10 +55,15 @@ def validate_config(config):
         config.update({"references": []})
 
     if not isinstance(config.references, list):
-        raise ConfigError("Config error: Incorrect reference settings. Needs to be list of references.")
+        raise ConfigError(
+            "Config error: Incorrect reference settings. Needs to be list of references."
+        )
 
     for ref in config.references:
-        if not all(hasattr(ref, attr) for attr in ["file", "table", "local_path_column", "driver_path_column"]):
+        if not all(
+            hasattr(ref, attr)
+            for attr in ["file", "table", "local_path_column", "driver_path_column"]
+        ):
             raise ConfigError("Config error: Incorrect media reference settings")
 
 

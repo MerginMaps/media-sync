@@ -26,7 +26,6 @@ from .conftest import (
     WORKSPACE,
     TMP_DIR,
     USER_PWD,
-    USER_PWD,
     SERVER_URL,
     MINIO_URL,
     MINIO_ACCESS_KEY,
@@ -512,14 +511,18 @@ def test_multiple_tables(mc):
         ),
     ],
 )
-def test_sync_without_references(mc: MerginClient, project_name: str, config_update: dict):
+def test_sync_without_references(mc, project_name: str, config_update: dict):
     """
     Test media sync running sync without references. It should not fail and just copy files.
     The test just checks that main() runs without errors.
     """
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(
+        TMP_DIR, project_name + "_work"
+    )  # working dir for mediasync
+    driver_dir = os.path.join(
+        TMP_DIR, project_name + "_driver"
+    )  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
     prepare_mergin_project(mc, full_project_name)
