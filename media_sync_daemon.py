@@ -84,7 +84,9 @@ def main():
             media_sync_push(mc, driver, files_to_sync)
 
             # check mergin client token expiration
-            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
+            delta = mc._auth_session["expire"] - datetime.datetime.now(
+                datetime.timezone.utc
+            )
             if delta.total_seconds() < 3600:
                 mc = create_mergin_client()
 
