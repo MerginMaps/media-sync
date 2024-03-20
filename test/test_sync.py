@@ -391,6 +391,7 @@ def test_sync_without_references(mc: MerginClient):
     The test just checks that main() runs without errors.
     """
 
+    # no references
     project_name = "mediasync_test_without_references"
     full_project_name = API_USER + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
@@ -399,7 +400,6 @@ def test_sync_without_references(mc: MerginClient):
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
-    # no references
     config.update(
         {
             "ALLOWED_EXTENSIONS": ["png", "jpg"],
@@ -411,18 +411,51 @@ def test_sync_without_references(mc: MerginClient):
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
+            "BASE_PATH": None,
         }
     )
 
     main()
 
+    # refence set to NONE
+    project_name = "mediasync_test_with_references_none"
+    full_project_name = API_USER + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
+
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
-    # references exist but are empty
     config.update(
         {
             "REFERENCES": None,
+        }
+    )
+
+    main()
+
+    # refences set to empty list
+    project_name = "mediasync_test_with_references_empty_list"
+    full_project_name = API_USER + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png", "jpg"],
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "BASE_PATH": None,
+            "REFERENCES": [],
         }
     )
 
