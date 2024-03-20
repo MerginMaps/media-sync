@@ -40,14 +40,21 @@ def validate_config(config):
     if not (config.allowed_extensions and len(config.allowed_extensions)):
         raise ConfigError("Config error: Allowed extensions can not be empty")
 
-    if "references" in config:
-        if config.references:
-            if len(config.references) > 0:
-                for ref in config.references:
-                    if not all(
-                        hasattr(ref, attr) for attr in ["file", "table", "local_path_column", "driver_path_column"]
-                    ):
-                        raise ConfigError("Config error: Incorrect media reference settings")
+    if "references" not in config:
+        config.update({"references": []})
+
+    if config.references is None:
+        config.update({"references": []})
+
+    if not isinstance(config.references, list):
+        raise ConfigError("Config error: Incorrect reference settings. Needs to be list of references.")
+
+    if len(config.references) > 0:
+        for ref in config.references:
+            if not all(
+                hasattr(ref, attr) for attr in ["file", "table", "local_path_column", "driver_path_column"]
+            ):
+                raise ConfigError("Config error: Incorrect media reference settings")
 
 
 def update_config_path(

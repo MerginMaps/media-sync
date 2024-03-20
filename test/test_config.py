@@ -93,3 +93,8 @@ def test_config():
     with pytest.raises(ConfigError, match="Config error: Unsupported operation mode"):
         config.update({'OPERATION_MODE': ""})
         validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Incorrect reference settings"):
+        config.update({"REFERENCES": "text"})
+        validate_config(config)
