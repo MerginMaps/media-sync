@@ -49,12 +49,9 @@ def validate_config(config):
     if not isinstance(config.references, list):
         raise ConfigError("Config error: Incorrect reference settings. Needs to be list of references.")
 
-    if len(config.references) > 0:
-        for ref in config.references:
-            if not all(
-                hasattr(ref, attr) for attr in ["file", "table", "local_path_column", "driver_path_column"]
-            ):
-                raise ConfigError("Config error: Incorrect media reference settings")
+    for ref in config.references:
+        if not all(hasattr(ref, attr) for attr in ["file", "table", "local_path_column", "driver_path_column"]):
+            raise ConfigError("Config error: Incorrect media reference settings")
 
 
 def update_config_path(
