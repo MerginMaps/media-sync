@@ -10,7 +10,13 @@ import datetime
 import os
 import time
 from drivers import DriverError, create_driver
-from media_sync import create_mergin_client, mc_download, media_sync_push, mc_pull, MediaSyncError
+from media_sync import (
+    create_mergin_client,
+    mc_download,
+    media_sync_push,
+    mc_pull,
+    MediaSyncError,
+)
 from config import config, validate_config, ConfigError
 from version import __version__
 
@@ -53,7 +59,9 @@ def main():
             media_sync_push(mc, driver, files_to_sync)
 
             # check mergin client token expiration
-            delta = mc._auth_session['expire'] - datetime.datetime.now(datetime.timezone.utc)
+            delta = mc._auth_session["expire"] - datetime.datetime.now(
+                datetime.timezone.utc
+            )
             if delta.total_seconds() < 3600:
                 mc = create_mergin_client()
 
@@ -64,5 +72,5 @@ def main():
         time.sleep(sleep_time)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
