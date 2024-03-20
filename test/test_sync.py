@@ -383,3 +383,47 @@ def test_multiple_tables(mc):
     sql = f"SELECT count(*) FROM {config.references[1].table} WHERE {config.references[1].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 1
+
+
+def test_sync_without_references(mc: MerginClient):
+    """
+    Test media sync running sync without references. It should not fail and just copy files.
+    The test just checks that main() runs without errors.
+    """
+
+    project_name = "mediasync_test_without_references"
+    full_project_name = API_USER + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")  # working dir for mediasync
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")  # destination dir for 'local' driver
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    # no references
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png", "jpg"],
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+        }
+    )
+
+    main()
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    # references exist but are empty
+    config.update(
+        {
+            "REFERENCES": None,
+        }
+    )
+
+    main()
