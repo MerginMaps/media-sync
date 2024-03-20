@@ -6,6 +6,8 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import pathlib
+
 from dynaconf import Dynaconf
 
 config = Dynaconf(
@@ -55,3 +57,19 @@ def validate_config(config):
             for attr in ["file", "table", "local_path_column", "driver_path_column"]
         ):
             raise ConfigError("Config error: Incorrect media reference settings")
+
+
+def update_config_path(
+    path_param: str,
+) -> None:
+    config_file_path = pathlib.Path(path_param)
+
+    if config_file_path.exists():
+        print(f"Using config file: {path_param}")
+        user_file_config = Dynaconf(
+            envvar_prefix=False,
+            settings_files=[config_file_path],
+        )
+        config.update(user_file_config)
+    else:
+        raise IOError(f"Config file {config_file_path} does not exist.")

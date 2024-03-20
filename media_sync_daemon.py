@@ -6,6 +6,8 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import argparse
+import sys
 import datetime
 import os
 import time
@@ -22,8 +24,31 @@ from version import __version__
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        prog="media_sync_daemon.py",
+        description="Synchronization tool for media files in Mergin Maps project to other backends.",
+        epilog="www.merginmaps.com",
+    )
+
+    parser.add_argument(
+        "config_file",
+        nargs="?",
+        default="config.yaml",
+        help="Path to file with configuration. Default value is config.yaml in current working directory.",
+    )
+
+    args = parser.parse_args()
+
     print(f"== Starting Mergin Media Sync daemon version {__version__} ==")
+
+    try:
+        update_config_path(args.config_file)
+    except IOError as e:
+        print("Error:" + str(e))
+        sys.exit(1)
+
     sleep_time = config.as_int("daemon.sleep_time")
+
     try:
         validate_config(config)
     except ConfigError as e:
@@ -59,9 +84,7 @@ def main():
             media_sync_push(mc, driver, files_to_sync)
 
             # check mergin client token expiration
-            delta = mc._auth_session["expire"] - datetime.datetime.now(
-                datetime.timezone.utc
-            )
+            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
             if delta.total_seconds() < 3600:
                 mc = create_mergin_client()
 
