@@ -431,3 +431,13 @@ def test_sync_without_references(mc: MerginClient, project_name: str, config_upd
     config.update(config_update)
 
     main()
+
+    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, "survey.gpkg"))
+    gpkg_cur = gpkg_conn.cursor()
+    sql = "SELECT count(*) FROM photos WHERE ext_url IS NULL"
+    gpkg_cur.execute(sql)
+    assert gpkg_cur.fetchone()[0] == 1
+
+    sql = "SELECT count(*) FROM notes WHERE ext_url IS NULL"
+    gpkg_cur.execute(sql)
+    assert gpkg_cur.fetchone()[0] == 3
