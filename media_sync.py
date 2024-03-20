@@ -21,58 +21,68 @@ class MediaSyncError(Exception):
 
 def _quote_identifier(identifier):
     """Quote identifiers"""
-    return "\"" + identifier + "\""
+    return '"' + identifier + '"'
 
 
 def _get_project_version():
-    """ Returns the current version of the project """
+    """Returns the current version of the project"""
     mp = MerginProject(config.project_working_dir)
-    return mp.metadata["version"]
+    return mp.version()
 
 
 def _check_has_working_dir():
     if not os.path.exists(config.project_working_dir):
         raise MediaSyncError("The project working directory does not exist: " + config.project_working_dir)
 
-    if not os.path.exists(os.path.join(config.project_working_dir, '.mergin')):
-        raise MediaSyncError("The project working directory does not seem to contain Mergin project: " + config.project_working_dir)
+    if not os.path.exists(os.path.join(config.project_working_dir, ".mergin")):
+        raise MediaSyncError(
+            "The project working directory does not seem to contain Mergin project: " + config.project_working_dir
+        )
 
 
 def _check_pending_changes():
-    """ Check working directory was not modified manually - this is probably uncommitted change from last attempt"""
+    """Check working directory was not modified manually - this is probably uncommitted change from last attempt"""
     mp = MerginProject(config.project_working_dir)
     status_push = mp.get_push_changes()
-    if status_push['added'] or status_push['updated'] or status_push['removed']:
+    if status_push["added"] or status_push["updated"] or status_push["removed"]:
         raise MediaSyncError(
-            "There are pending changes in the local directory - please review and push manually! " + str(status_push))
+            "There are pending changes in the local directory - please review and push manually! " + str(status_push)
+        )
 
 
 def _get_media_sync_files(files):
-    """ Return files relevant to media sync from project files """
+    """Return files relevant to media sync from project files"""
     allowed_extensions = config.allowed_extensions
-    files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip('.') in allowed_extensions]
+    files_to_upload = [f for f in files if os.path.splitext(f["path"])[1].lstrip(".") in allowed_extensions]
     # filter out files which are not under particular directory in mergin project
-    if config.base_path:
+    if "base_path" in config and config.base_path:
         filtered_files = [f for f in files_to_upload if f["path"].startswith(config.base_path)]
         files_to_upload = filtered_files
     return files_to_upload
 
 
 def create_mergin_client():
-    """ Create instance of MerginClient"""
+    """Create instance of MerginClient"""
     try:
-        return MerginClient(config.mergin.url, login=config.mergin.username, password=config.mergin.password, plugin_version=f"media-sync/{__version__}")
+        return MerginClient(
+            config.mergin.url,
+            login=config.mergin.username,
+            password=config.mergin.password,
+            plugin_version=f"media-sync/{__version__}",
+        )
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
-        raise MediaSyncError(f"Unable to log in to Mergin: {str(e)} \n\n" +
-                          "Have you specified correct credentials in configuration file?")
+        raise MediaSyncError(
+            f"Unable to log in to Mergin: {str(e)} \n\n"
+            + "Have you specified correct credentials in configuration file?"
+        )
     except ClientError as e:
         # this could be e.g. DNS error
         raise MediaSyncError("Mergin client error: " + str(e))
 
 
 def mc_download(mc):
-    """ Clone mergin project to local dir
+    """Clone mergin project to local dir
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
@@ -89,7 +99,7 @@ def mc_download(mc):
 
 
 def mc_pull(mc):
-    """ Pull latest version to synchronize with local dir
+    """Pull latest version to synchronize with local dir
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
@@ -97,13 +107,12 @@ def mc_pull(mc):
     _check_pending_changes()
 
     mp = MerginProject(config.project_working_dir)
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        project_info = mc.project_info(project_path, since=local_version)
-        projects = mc.get_projects_by_names([project_path])
-        server_version = projects[project_path]["version"]
+        project_info = mc.project_info(mp.project_full_name(), since=local_version)
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise MediaSyncError("Mergin client error: " + str(e))
@@ -121,14 +130,19 @@ def mc_pull(mc):
         raise MediaSyncError("Mergin client error on pull: " + str(e))
 
     print("Pulled new version from Mergin: " + _get_project_version())
-    files_to_upload = _get_media_sync_files(status_pull["added"]+status_pull["updated"])
+    files_to_upload = _get_media_sync_files(status_pull["added"] + status_pull["updated"])
     return files_to_upload
 
 
 def _update_references(files):
-    """ Update references to media files in reference table """
+    """Update references to media files in reference table"""
     for ref in config.references:
-        reference_config = [ref.file, ref.table, ref.local_path_column, ref.driver_path_column]
+        reference_config = [
+            ref.file,
+            ref.table,
+            ref.local_path_column,
+            ref.driver_path_column,
+        ]
         if not all(reference_config):
             return
 
@@ -141,18 +155,23 @@ def _update_references(files):
             for file_path, dest in files.items():
                 # remove reference to the local path only in the move mode
                 if config.operation_mode == "move":
-                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
-                        f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column, {_quote_identifier(ref.local_path_column)}=Null " \
+                    sql = (
+                        f"UPDATE {_quote_identifier(ref.table)} "
+                        f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column, {_quote_identifier(ref.local_path_column)}=Null "
                         f"WHERE {_quote_identifier(ref.local_path_column)}=:file_path"
+                    )
                 elif config.operation_mode == "copy":
-                    sql = f"UPDATE {_quote_identifier(ref.table)} " \
-                        f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column " \
+                    sql = (
+                        f"UPDATE {_quote_identifier(ref.table)} "
+                        f"SET {_quote_identifier(ref.driver_path_column)}=:dest_column "
                         f"WHERE {_quote_identifier(ref.local_path_column)}=:file_path"
+                    )
                 gpkg_cur.execute(sql, {"dest_column": dest, "file_path": file_path})
             gpkg_conn.commit()
             gpkg_conn.close()
         except sqlite3.OperationalError as e:
             raise MediaSyncError("SQLITE error: " + str(e))
+
 
 def media_sync_push(mc, driver, files):
     if not files:
@@ -172,7 +191,7 @@ def media_sync_push(mc, driver, files):
             size = os.path.getsize(src) / 1024 / 1024  # file size in MB
             print(f"Uploading {file['path']} of size {size:.2f} MB")
             dest = driver.upload_file(src, file["path"])
-            migrated_files[file['path']] = dest
+            migrated_files[file["path"]] = dest
         except DriverError as e:
             print(f"Failed to upload {file['path']}: " + str(e))
             continue
@@ -238,5 +257,5 @@ def main():
         print("Error: " + str(err))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -10,51 +10,34 @@ import pytest
 import os
 import shutil
 import sqlite3
-import tempfile
-from mergin import MerginClient, ClientError
 
 from drivers import MinioDriver, LocalDriver
-from media_sync import main, config, mc_pull, media_sync_push, mc_download, MediaSyncError
+from media_sync import (
+    main,
+    config,
+    mc_pull,
+    media_sync_push,
+    mc_download,
+    MediaSyncError,
+)
 
-SERVER_URL = os.environ.get('TEST_MERGIN_URL')
-API_USER = os.environ.get('TEST_API_USERNAME')
-USER_PWD = os.environ.get('TEST_API_PASSWORD')
-TMP_DIR = tempfile.gettempdir()
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_data')
-MINIO_URL = os.environ.get('TEST_MINIO_URL')
-MINIO_ACCESS_KEY = os.environ.get('TEST_MINIO_ACCESS_KEY')
-MINIO_SECRET_KEY = os.environ.get('TEST_MINIO_SECRET_KEY')
-
-
-@pytest.fixture(scope='function')
-def mc():
-    assert SERVER_URL and API_USER and USER_PWD
-    return MerginClient(SERVER_URL, login=API_USER, password=USER_PWD)
-
-
-def cleanup(mc, project, dirs):
-    """ Cleanup leftovers from previous test if needed such as remote project and local directories """
-    try:
-        print("Deleting project on Mergin server: " + project)
-        mc.delete_project(project)
-    except ClientError as e:
-        print("Deleting project error: " + str(e))
-    for d in dirs:
-        if os.path.exists(d):
-            shutil.rmtree(d)
-
-
-def prepare_mergin_project(mc, project_name):
-    # copy test data to some temp dir, upload to mergin server and clean up working dir
-    project_dir = os.path.join(TMP_DIR, project_name + '_create')
-    cleanup(mc, API_USER + "/" + project_name, [project_dir])
-
-    shutil.copytree(os.path.join(TEST_DATA_DIR), project_dir)
-    mc.create_project_and_push(project_name, project_dir)
+from .conftest import (
+    API_USER,
+    WORKSPACE,
+    TMP_DIR,
+    USER_PWD,
+    USER_PWD,
+    SERVER_URL,
+    MINIO_URL,
+    MINIO_ACCESS_KEY,
+    MINIO_SECRET_KEY,
+    cleanup,
+    prepare_mergin_project,
+)
 
 
 def test_sync(mc):
-    """ Test media sync starting from fresh project and download and then following scenarios
+    """Test media sync starting from fresh project and download and then following scenarios
 
     - simple full copy of all images without reference -> mergin server is not aware of any changes
     - copy only .jpg images -> .png file is ignored
@@ -63,26 +46,39 @@ def test_sync(mc):
     - switch to .png images and enable lookup only in /images subdirectory -> nothing to do
     """
     project_name = "mediasync_test"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(
+        TMP_DIR, project_name + "_work"
+    )  # working dir for mediasync
+    driver_dir = os.path.join(
+        TMP_DIR, project_name + "_driver"
+    )  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
-    config.update({
-        'ALLOWED_EXTENSIONS': ["png","jpg"],
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'MERGIN__PROJECT_NAME': full_project_name,
-        'PROJECT_WORKING_DIR': work_project_dir,
-        'DRIVER': "local",
-        'LOCAL__DEST': driver_dir,
-        'OPERATION_MODE': "copy",
-        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
-    })
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png", "jpg"],
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+        }
+    )
 
     main()
     # check synced images
@@ -110,9 +106,18 @@ def test_sync(mc):
     shutil.rmtree(driver_dir)
 
     # enable references updates
-    config.update({
-        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"}]
-    })
+    config.update(
+        {
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ]
+        }
+    )
 
     main()
     # check synced images
@@ -122,7 +127,9 @@ def test_sync(mc):
     # check references have been changed and pushed
     project_info = mc.project_info(full_project_name)
     assert project_info["version"] == "v2"
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
+    gpkg_conn = sqlite3.connect(
+        os.path.join(work_project_dir, config.references[0].file)
+    )
     gpkg_cur = gpkg_conn.cursor()
     sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
@@ -131,9 +138,7 @@ def test_sync(mc):
     shutil.rmtree(driver_dir)
 
     # change to 'move' mode
-    config.update({
-        'OPERATION_MODE': "move"
-    })
+    config.update({"OPERATION_MODE": "move"})
 
     main()
     # check synced images
@@ -143,9 +148,13 @@ def test_sync(mc):
     assert not os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
     project_info = mc.project_info(full_project_name)
     assert project_info["version"] == "v3"
-    moved_file = next((f for f in project_info["files"] if f["path"] == "images/img2.jpg"), None)
+    moved_file = next(
+        (f for f in project_info["files"] if f["path"] == "images/img2.jpg"), None
+    )
     assert not moved_file
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
+    gpkg_conn = sqlite3.connect(
+        os.path.join(work_project_dir, config.references[0].file)
+    )
     gpkg_cur = gpkg_conn.cursor()
     sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].local_path_column} is Null AND {config.references[0].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
@@ -164,35 +173,49 @@ def test_sync(mc):
 
 
 def test_pull_and_sync(mc):
-    """ Test media sync if mergin project is ahead of locally downloaded one """
+    """Test media sync if mergin project is ahead of locally downloaded one"""
     project_name = "mediasync_test_pull"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')
-    driver_dir = os.path.join(TMP_DIR, project_name + '_driver')
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
-    config.update({
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'MERGIN__PROJECT_NAME': full_project_name,
-        'PROJECT_WORKING_DIR': work_project_dir,
-        'DRIVER': "local",
-        'LOCAL__DEST': driver_dir,
-        'OPERATION_MODE': "copy",
-        "ALLOWED_EXTENSIONS": ["png","jpg"],
-        "BASE_PATH": None,
-        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
-    })
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "ALLOWED_EXTENSIONS": ["png", "jpg"],
+            "BASE_PATH": None,
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+        }
+    )
     # initial run
     main()
 
     # let's update project on server - create new .png file and modify reference .gpkg file
-    project_dir = os.path.join(TMP_DIR, project_name + '_create')
-    shutil.copyfile(os.path.join(project_dir, 'img1.png'), os.path.join(project_dir, 'img_new.png'))
-    gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'survey.gpkg'))
+    project_dir = os.path.join(TMP_DIR, project_name + "_create")
+    if os.path.exists(project_dir):
+        shutil.rmtree(project_dir)
+    shutil.copytree(work_project_dir, project_dir)
+    shutil.copyfile(
+        os.path.join(project_dir, "img1.png"), os.path.join(project_dir, "img_new.png")
+    )
+    gpkg_conn = sqlite3.connect(os.path.join(project_dir, "survey.gpkg"))
     gpkg_conn.enable_load_extension(True)
     gpkg_cur = gpkg_conn.cursor()
     gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
@@ -210,34 +233,45 @@ def test_pull_and_sync(mc):
 
 
 def test_minio_backend(mc):
-    """ Test media sync connected to minio backend (needs local service running) """
+    """Test media sync connected to minio backend (needs local service running)"""
     project_name = "mediasync_test_minio"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
 
     cleanup(mc, full_project_name, [work_project_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
-    config.update({
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'MERGIN__PROJECT_NAME': full_project_name,
-        'PROJECT_WORKING_DIR': work_project_dir,
-        'OPERATION_MODE': "copy",
-        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
-        'DRIVER': "minio",
-        'MINIO__ENDPOINT': MINIO_URL,
-        'MINIO__ACCESS_KEY': MINIO_ACCESS_KEY,
-        'MINIO__SECRET_KEY': MINIO_SECRET_KEY,
-        'MINIO__BUCKET': 'test'
-    })
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "minio",
+            "MINIO__ENDPOINT": MINIO_URL,
+            "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
+            "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
+            "MINIO__BUCKET": "test",
+        }
+    )
 
     main()
     # check synced images
     driver = MinioDriver(config)
-    minio_objects = [o.object_name for o in driver.client.list_objects('test', recursive=True)]
+    minio_objects = [
+        o.object_name for o in driver.client.list_objects("test", recursive=True)
+    ]
     assert "img1.png" in minio_objects
     assert "images/img2.jpg" in minio_objects
 
@@ -246,7 +280,7 @@ def test_minio_backend(mc):
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
 
     cleanup(mc, full_project_name, [work_project_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     config.update(
         {
@@ -256,54 +290,86 @@ def test_minio_backend(mc):
             "MERGIN__PROJECT_NAME": full_project_name,
             "PROJECT_WORKING_DIR": work_project_dir,
             "OPERATION_MODE": "copy",
-            "REFERENCES": [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
             "DRIVER": "minio",
             "MINIO__ENDPOINT": MINIO_URL,
             "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
             "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
             "MINIO__BUCKET": "test1",
-            "MINIO__BUCKET_SUBPATH": "subPath"
+            "MINIO__BUCKET_SUBPATH": "subPath",
         }
     )
 
     main()
     # check synced images
     driver = MinioDriver(config)
-    minio_objects = [o.object_name for o in driver.client.list_objects("test1", recursive=True)]
+    minio_objects = [
+        o.object_name for o in driver.client.list_objects("test1", recursive=True)
+    ]
     assert "subPath/img1.png" in minio_objects
     assert "subPath/images/img2.jpg" in minio_objects
 
 
 def test_sync_failures(mc):
-    """ Test common sync failures """
+    """Test common sync failures"""
     project_name = "mediasync_fail"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(
+        TMP_DIR, project_name + "_work"
+    )  # working dir for mediasync
+    driver_dir = os.path.join(
+        TMP_DIR, project_name + "_driver"
+    )  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
-    config.update({
-        'ALLOWED_EXTENSIONS': ["png","jpg"],
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'MERGIN__PROJECT_NAME': full_project_name,
-        'PROJECT_WORKING_DIR': work_project_dir,
-        'DRIVER': "local",
-        'LOCAL__DEST': driver_dir,
-        'OPERATION_MODE': "copy",
-        'REFERENCES': [{"file": None, "table": None, "local_path_column": None, "driver_path_column": None}],
-    })
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png", "jpg"],
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+        }
+    )
     driver = LocalDriver(config)
     files_to_sync = mc_download(mc)
     # "remove" .mergin hidden dir to mimic broken working directory
-    os.rename(os.path.join(work_project_dir, '.mergin'), os.path.join(work_project_dir, '.hidden'))
+    os.rename(
+        os.path.join(work_project_dir, ".mergin"),
+        os.path.join(work_project_dir, ".hidden"),
+    )
 
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
-    assert "The project working directory does not seem to contain Mergin project" in exc.value.args[0]
-    os.rename(os.path.join(work_project_dir, '.hidden'), os.path.join(work_project_dir, '.mergin'))
+    assert (
+        "The project working directory does not seem to contain Mergin project"
+        in exc.value.args[0]
+    )
+    os.rename(
+        os.path.join(work_project_dir, ".hidden"),
+        os.path.join(work_project_dir, ".mergin"),
+    )
 
     # "remove" working project
     os.rename(work_project_dir, work_project_dir + "_renamed")
@@ -313,18 +379,39 @@ def test_sync_failures(mc):
     os.rename(work_project_dir + "_renamed", work_project_dir)
 
     # incorrect gpkg details for reference table
-    config.update({
-        'REFERENCES': [{"file": "survey.gpkg", "table": "notes_error", "local_path_column": "photo", "driver_path_column": "ext_url"}],
-    })
+    config.update(
+        {
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes_error",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
     assert "SQLITE error" in exc.value.args[0]
-    config.update({
-        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"}],
-    })
+    config.update(
+        {
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
 
     # introduce some unknown local file
-    shutil.copyfile(os.path.join(work_project_dir, "survey.gpkg"), os.path.join(work_project_dir, "new.gpkg"))
+    shutil.copyfile(
+        os.path.join(work_project_dir, "survey.gpkg"),
+        os.path.join(work_project_dir, "new.gpkg"),
+    )
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
     assert "There are changes to be added - it should never happen" in exc.value.args[0]
@@ -338,29 +425,48 @@ def test_sync_failures(mc):
     assert not os.path.exists(os.path.join(driver_dir, "img1.png"))
     assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
 
+
 def test_multiple_tables(mc):
     project_name = "mediasync_test_multiple"
-    full_project_name = API_USER + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working dir for mediasync
-    driver_dir = os.path.join(TMP_DIR, project_name + '_driver')  # destination dir for 'local' driver
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(
+        TMP_DIR, project_name + "_work"
+    )  # working dir for mediasync
+    driver_dir = os.path.join(
+        TMP_DIR, project_name + "_driver"
+    )  # destination dir for 'local' driver
 
     cleanup(mc, full_project_name, [work_project_dir, driver_dir])
-    prepare_mergin_project(mc, project_name)
+    prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
-    config.update({
-        'ALLOWED_EXTENSIONS': ["png"],
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'MERGIN__PROJECT_NAME': full_project_name,
-        'PROJECT_WORKING_DIR': work_project_dir,
-        'DRIVER': "local",
-        'LOCAL__DEST': driver_dir,
-        'OPERATION_MODE': "copy",
-        'REFERENCES': [{"file": "survey.gpkg", "table": "notes", "local_path_column": "photo", "driver_path_column": "ext_url"},
-                       {"file": "survey.gpkg", "table": "photos", "local_path_column": "123_photo", "driver_path_column": "ext_url"}]
-    })
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png"],
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                },
+                {
+                    "file": "survey.gpkg",
+                    "table": "photos",
+                    "local_path_column": "123_photo",
+                    "driver_path_column": "ext_url",
+                },
+            ],
+        }
+    )
 
     main()
     # check synced images
@@ -372,13 +478,17 @@ def test_multiple_tables(mc):
 
     copied_file = os.path.join(driver_dir, "img1.png")
     # check that both tables were updated
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[0].file))
+    gpkg_conn = sqlite3.connect(
+        os.path.join(work_project_dir, config.references[0].file)
+    )
     gpkg_cur = gpkg_conn.cursor()
     sql = f"SELECT count(*) FROM {config.references[0].table} WHERE {config.references[0].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 1
     # check that both tables were updated
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, config.references[1].file))
+    gpkg_conn = sqlite3.connect(
+        os.path.join(work_project_dir, config.references[1].file)
+    )
     gpkg_cur = gpkg_conn.cursor()
     sql = f"SELECT count(*) FROM {config.references[1].table} WHERE {config.references[1].driver_path_column}='{copied_file}'"
     gpkg_cur.execute(sql)
