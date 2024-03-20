@@ -5,6 +5,7 @@ Copyright (C) 2021 Lutra Consulting
 
 License: MIT
 """
+
 import pytest
 
 from config import config, ConfigError, validate_config
@@ -63,37 +64,27 @@ def test_config():
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(
-        ConfigError, match="Config error: Incorrect Local driver settings"
-    ):
+    with pytest.raises(ConfigError, match="Config error: Incorrect Local driver settings"):
         config.update({"DRIVER": "local", "LOCAL__DEST": None})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(
-        ConfigError, match="Config error: Incorrect MinIO driver settings"
-    ):
+    with pytest.raises(ConfigError, match="Config error: Incorrect MinIO driver settings"):
         config.update({"DRIVER": "minio", "MINIO__ENDPOINT": None})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(
-        ConfigError, match="Config error: Allowed extensions can not be empty"
-    ):
+    with pytest.raises(ConfigError, match="Config error: Allowed extensions can not be empty"):
         config.update({"ALLOWED_EXTENSIONS": []})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(
-        ConfigError, match="Config error: References list can not be empty"
-    ):
+    with pytest.raises(ConfigError, match="Config error: References list can not be empty"):
         config.update({"REFERENCES": []})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(
-        ConfigError, match="Config error: Incorrect media reference settings"
-    ):
+    with pytest.raises(ConfigError, match="Config error: Incorrect media reference settings"):
         config.update({"REFERENCES": [{"file": "survey.gpkg"}]})
         validate_config(config)
 
