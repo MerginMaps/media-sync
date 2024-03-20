@@ -36,14 +36,6 @@ def _reset_config():
             "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
             "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
             "MINIO__BUCKET": "test",
-            "REFERENCES": [
-                {
-                    "file": "survey.gpkg",
-                    "table": "table",
-                    "local_path_column": "local_path_column",
-                    "driver_path_column": "driver_path_column",
-                }
-            ],
             "BASE_PATH": "",
         }
     )
@@ -52,6 +44,25 @@ def _reset_config():
 def test_config():
     # valid config
     _reset_config()
+    validate_config(config)
+
+    _reset_config()
+    config.update({"REFERENCES": None})
+    validate_config(config)
+
+    _reset_config()
+    config.update(
+        {
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "table",
+                    "local_path_column": "local_path_column",
+                    "driver_path_column": "driver_path_column",
+                }
+            ]
+        }
+    )
     validate_config(config)
 
     with pytest.raises(ConfigError, match="Config error: Incorrect mergin settings"):
@@ -86,13 +97,6 @@ def test_config():
 
     _reset_config()
     with pytest.raises(
-        ConfigError, match="Config error: References list can not be empty"
-    ):
-        config.update({"REFERENCES": []})
-        validate_config(config)
-
-    _reset_config()
-    with pytest.raises(
         ConfigError, match="Config error: Incorrect media reference settings"
     ):
         config.update({"REFERENCES": [{"file": "survey.gpkg"}]})
@@ -101,4 +105,9 @@ def test_config():
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Unsupported operation mode"):
         config.update({"OPERATION_MODE": ""})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Incorrect reference settings"):
+        config.update({"REFERENCES": "text"})
         validate_config(config)

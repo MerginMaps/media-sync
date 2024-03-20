@@ -48,8 +48,16 @@ def validate_config(config):
     if not (config.allowed_extensions and len(config.allowed_extensions)):
         raise ConfigError("Config error: Allowed extensions can not be empty")
 
-    if not (config.references and len(config.references)):
-        raise ConfigError("Config error: References list can not be empty")
+    if "references" not in config:
+        config.update({"references": []})
+
+    if config.references is None:
+        config.update({"references": []})
+
+    if not isinstance(config.references, list):
+        raise ConfigError(
+            "Config error: Incorrect reference settings. Needs to be list of references."
+        )
 
     for ref in config.references:
         if not all(
