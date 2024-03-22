@@ -19,7 +19,7 @@ from media_sync import (
     mc_pull,
     MediaSyncError,
 )
-from config import config, validate_config, ConfigError
+from config import config, validate_config, ConfigError, update_config_path
 from version import __version__
 
 
