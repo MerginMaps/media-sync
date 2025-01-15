@@ -15,6 +15,8 @@ env:
   TEST_MINIO_URL: 127.0.0.1:9000
   TEST_MINIO_ACCESS_KEY: minioaccesskey
   TEST_MINIO_SECRET_KEY: miniosecretkey
+  TEST_GOOGLE_DRIVE_FOLDER: SAVE_FOLDER
+  TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE: google-credentials.json
 
 jobs:
 
@@ -29,6 +31,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Save Google Credentials File
+        run: echo ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE }} > $TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
 
       - name: Install Python dependencies
         run: |
