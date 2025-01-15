@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Save Google Credentials File
-        run: echo ${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE }} > $TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
+        run: echo "${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE }}" > $TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
 
       - name: Install Python dependencies
         run: |
