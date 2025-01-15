@@ -16,6 +16,10 @@ WORKSPACE = os.environ.get("TEST_API_WORKSPACE")
 MINIO_URL = os.environ.get("TEST_MINIO_URL")
 MINIO_ACCESS_KEY = os.environ.get("TEST_MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = os.environ.get("TEST_MINIO_SECRET_KEY")
+GOOGLE_DRIVE_FOLDER = os.environ.get("TEST_GOOGLE_DRIVE_FOLDER")
+GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.environ.get(
+    "TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE"
+)
 
 
 @pytest.fixture(scope="function")
