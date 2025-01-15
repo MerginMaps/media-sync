@@ -8,7 +8,7 @@ on:
     - ".github/workflows/tests_mergin_media_sync.yaml"
 
 env:
-  TEST_MERGIN_URL: https://test.dev.merginmaps.com
+  TEST_MERGIN_URL: https://app.dev.merginmaps.com
   TEST_API_USERNAME: test_media_sync
   TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
   TEST_API_WORKSPACE: test-media-sync
