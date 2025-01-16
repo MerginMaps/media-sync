@@ -1,4 +1,4 @@
-FROM python:3.8-slim-buster
+FROM python:3.11-slim-buster
 MAINTAINER Martin Dobias "martin.dobias@lutraconsulting.co.uk"
 
 # to fix issue with mod_spatialite.so
