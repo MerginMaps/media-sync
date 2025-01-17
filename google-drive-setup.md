@@ -33,6 +33,8 @@ Keep this file secret and do not share it with anyone.
 
 ## Sharing the Folder with Data from Media Sync
 
+The data stored under the project's `Service Account` is counted towards the Google Drive storage quota of the user who created the project.
+
 To store data in Google Drive, use the following settings:
 
 ```yaml
