@@ -131,7 +131,7 @@ class GoogleDriveDriver(Driver):
         except Exception as e:
             raise DriverError("GoogleDrive driver init error: " + str(e))
 
-    def upload_file(self, src: str, obj_path: str):
+    def upload_file(self, src: str, obj_path: str) -> str:
         try:
             file_metadata = {
                 "name": obj_path,
@@ -189,7 +189,7 @@ class GoogleDriveDriver(Driver):
         except Exception as e:
             raise DriverError("Google Drive create folder error: " + str(e))
 
-    def _file_link(self, file_id: str):
+    def _file_link(self, file_id: str) -> str:
         """Get a link to the file in Google Drive."""
         try:
             file = (
