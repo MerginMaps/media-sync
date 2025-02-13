@@ -72,7 +72,7 @@ def validate_config(config):
             raise ConfigError("Config error: Incorrect media reference settings")
 
     if config.driver == DriverType.GOOGLE_DRIVE and not (
-        config.google_drive.service_account_file
+        hasattr(config.google_drive, "service_account_file")
         and config.google_drive.folder
         and config.google_drive.share_with
     ):
