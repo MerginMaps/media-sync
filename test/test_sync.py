@@ -595,6 +595,9 @@ def test_google_drive_backend(mc):
 
     # google_drive_delete_folder(GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER)
 
+    print(config.driver)
+    print(config.google_drive)
+
     main()
 
     google_drive_files = google_drive_list_files_in_folder(
