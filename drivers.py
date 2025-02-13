@@ -119,12 +119,12 @@ class GoogleDriveDriver(Driver):
             )
 
             self._folder = config.google_drive.folder
-            folder_exists, self._folder_id = self._folder_exists(self._folder)
+            self._folder_id = self._folder_exists(self._folder)
 
-            if not folder_exists:
+            if not self._folder_id:
                 self._folder_id = self._create_folder(self._folder)
 
-            for email in get_share_with(config.google_drive):
+            for email in self._get_share_with(config.google_drive):
                 if email:
                     self._share_with(email)
 
@@ -152,7 +152,7 @@ class GoogleDriveDriver(Driver):
 
         return self._file_link(file_id)
 
-    def _folder_exists(self, folder_name: str) -> typing.Tuple[bool, str]:
+    def _folder_exists(self, folder_name: str) -> typing.Optional[str]:
         """Check if a folder with the specified name exists. Return boolean and folder ID if exists."""
 
         # Query to check if a folder with the specified name exists
@@ -171,9 +171,9 @@ class GoogleDriveDriver(Driver):
             )
 
         if items:
-            return True, items[0]["id"]
+            return items[0]["id"]
         else:
-            return False, ""
+            return None
 
     def _create_folder(self, folder_name: str) -> str:
         file_metadata = {
