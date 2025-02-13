@@ -5,9 +5,9 @@ from drivers import GoogleDriveDriver
 def google_drive_delete_folder(driver: GoogleDriveDriver, folder_name: str) -> None:
     """Delete folder from Google Drive."""
 
-    exist, folder_id = driver._folder_exists(folder_name)
+    folder_id = driver._folder_exists(folder_name)
 
-    if exist:
+    if folder_id:
         driver._service.files().delete(fileId=folder_id).execute()
 
 
@@ -24,9 +24,9 @@ def google_drive_list_files_in_folder(
 ) -> typing.List[str]:
     """List files in folder from Google Drive."""
 
-    exist, folder_id = driver._folder_exists(folder_name)
+    folder_id = driver._folder_exists(folder_name)
 
-    if exist:
+    if folder_id:
         query = f"'{folder_id}' in parents and trashed = false"
 
         # Get files with their metadata
