@@ -73,8 +73,8 @@ def validate_config(config):
 
     if config.driver == DriverType.GOOGLE_DRIVE and not (
         hasattr(config.google_drive, "service_account_file")
-        and config.google_drive.folder
-        and config.google_drive.share_with
+        and hasattr(config.google_drive, "folder")
+        and hasattr(config.google_drive, "share_with")
     ):
         raise ConfigError("Config error: Incorrect GoogleDrive driver settings")
 
