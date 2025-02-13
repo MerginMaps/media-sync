@@ -214,10 +214,10 @@ class GoogleDriveDriver(Driver):
                 .execute()
             )
 
-            # Check if email exists in permissions
-            for permission in permissions.get("permissions", []):
-                if permission.get("emailAddress", "").lower() == email.lower():
-                    return True
+            return any(
+                permission.get("emailAddress", "").lower() == email.lower()
+                for permission in permissions.get("permissions", [])
+            )
 
         except Exception as e:
             raise DriverError("Google Drive has permission error: " + str(e))
