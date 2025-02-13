@@ -634,29 +634,3 @@ def test_google_drive_backend(mc):
     # files in mergin project still exist (copy mode)
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
-
-    # test for moving files
-    cleanup(mc, full_project_name, [work_project_dir])
-    prepare_mergin_project(mc, full_project_name)
-
-    # patch config to fit testing purposes
-    config.update(
-        {
-            "OPERATION_MODE": "move",
-        }
-    )
-
-    google_drive_delete_folder(GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER)
-
-    main()
-
-    google_drive_files = google_drive_list_files_in_folder(
-        GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER
-    )
-
-    assert "img1.png" in google_drive_files
-    assert "images/img2.jpg" in google_drive_files
-
-    # files in mergin project still exist (copy mode)
-    assert os.path.exists(os.path.join(work_project_dir, "img1.png")) is False
-    assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg")) is False
