@@ -239,6 +239,28 @@ class GoogleDriveDriver(Driver):
             except Exception as e:
                 raise DriverError("Google Drive sharing folder error: " + str(e))
 
+    def _get_share_with(self, config) -> typing.List[str]:
+        google_driver_settings = config.google_drive
+        email_regex = re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")
+
+        emails_to_share_with = []
+        if isinstance(google_driver_settings.share_with, str):
+            if email_regex.match(google_driver_settings.share_with):
+                emails_to_share_with.append(google_driver_settings.share_with)
+        elif isinstance(google_driver_settings.share_with, list):
+            for email in google_driver_settings.share_with:
+                if email_regex.match(email):
+                    emails_to_share_with.append(email)
+        else:
+            raise DriverError(
+                "Google Drive sharing: Incorrect GoogleDrive shared_with settings"
+            )
+
+        if not emails_to_share_with:
+            warnings.warn("Google Drive sharing: Not shared with any user")
+
+        return emails_to_share_with
+
 
 def create_driver(config):
     """Create driver object based on type defined in config"""

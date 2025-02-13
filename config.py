@@ -89,14 +89,3 @@ def update_config_path(
         config.update(user_file_config)
     else:
         raise IOError(f"Config file {config_file_path} does not exist.")
-
-
-def get_share_with(google_driver_settings) -> typing.List[str]:
-    """Returns shared_with setting as a list of emails."""
-
-    if isinstance(google_driver_settings.share_with, str):
-        return [google_driver_settings.share_with]
-    elif isinstance(google_driver_settings.share_with, list):
-        return google_driver_settings.share_with
-    else:
-        raise ConfigError("Config error: Incorrect GoogleDrive shared_with settings")
