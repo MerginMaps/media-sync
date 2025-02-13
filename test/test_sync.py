@@ -593,7 +593,7 @@ def test_google_drive_backend(mc):
         }
     )
 
-    google_drive_delete_folder(GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER)
+    # google_drive_delete_folder(GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER)
 
     main()
 
