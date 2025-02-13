@@ -7,9 +7,9 @@ License: MIT
 """
 
 import pathlib
-import typing
 
 from dynaconf import Dynaconf
+from drivers import DriverType
 
 config = Dynaconf(
     envvar_prefix=False,
@@ -29,7 +29,11 @@ def validate_config(config):
     ):
         raise ConfigError("Config error: Incorrect mergin settings")
 
-    if config.driver not in ["local", "minio", "google_drive"]:
+    if not (
+        config.driver == DriverType.LOCAL
+        or config.driver == DriverType.MINIO
+        or config.driver == DriverType.GOOGLE_DRIVE
+    ):
         raise ConfigError("Config error: Unsupported driver")
 
     if config.operation_mode not in ["move", "copy"]:
@@ -38,7 +42,7 @@ def validate_config(config):
     if config.driver == "local" and not config.local.dest:
         raise ConfigError("Config error: Incorrect Local driver settings")
 
-    if config.driver == "minio" and not (
+    if config.driver == DriverType.MINIO and not (
         config.minio.endpoint
         and config.minio.access_key
         and config.minio.secret_key
@@ -67,7 +71,7 @@ def validate_config(config):
         ):
             raise ConfigError("Config error: Incorrect media reference settings")
 
-    if config.driver == "google_drive" and not (
+    if config.driver == DriverType.GOOGLE_DRIVE and not (
         config.google_drive.service_account_file
         and config.google_drive.folder
         and config.google_drive.share_with

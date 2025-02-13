@@ -11,6 +11,8 @@ from pathlib import Path
 import shutil
 import typing
 import warnings
+import re
+import enum
 
 from minio import Minio
 from minio.error import S3Error
@@ -20,7 +22,21 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaFileUpload
 
-from config import get_share_with
+
+class DriverType(enum.Enum):
+    LOCAL = "local"
+    MINIO = "minio"
+    GOOGLE_DRIVE = "google_drive"
+
+    def __eq__(self, value):
+        if isinstance(value, str):
+            return self.value == value
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
 
 
 class DriverError(Exception):
@@ -265,10 +281,10 @@ class GoogleDriveDriver(Driver):
 def create_driver(config):
     """Create driver object based on type defined in config"""
     driver = None
-    if config.driver == "local":
+    if config.driver == DriverType.LOCAL:
         driver = LocalDriver(config)
-    elif config.driver == "minio":
+    elif config.driver == DriverType.MINIO:
         driver = MinioDriver(config)
-    elif config.driver == "google_drive":
+    elif config.driver == DriverType.GOOGLE_DRIVE:
         driver = GoogleDriveDriver(config)
     return driver
