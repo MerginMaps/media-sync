@@ -20,6 +20,7 @@ from media_sync import (
     mc_download,
     MediaSyncError,
 )
+from config import validate_config, ConfigError
 
 from .conftest import (
     API_USER,
@@ -569,6 +570,32 @@ def test_google_drive_backend(mc):
     cleanup(mc, full_project_name, [work_project_dir])
     prepare_mergin_project(mc, full_project_name)
 
+    # invalid config
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "google_drive",
+            "GOOGLE_DRIVE__FOLDER": GOOGLE_DRIVE_FOLDER,
+            "GOOGLE_DRIVE__SHARE_WITH": "",
+        }
+    )
+
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
     # patch config to fit testing purposes
     config.update(
         {
@@ -589,7 +616,7 @@ def test_google_drive_backend(mc):
             "DRIVER": "google_drive",
             "GOOGLE_DRIVE__SERVICE_ACCOUNT_FILE": GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
             "GOOGLE_DRIVE__FOLDER": GOOGLE_DRIVE_FOLDER,
-            "GOOGLE_DRIVE__SHARE_WITH": "jan.caha@lutraconsulting.co.uk",
+            "GOOGLE_DRIVE__SHARE_WITH": "",
         }
     )
 
