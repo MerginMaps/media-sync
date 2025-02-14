@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import shutil
 import typing
-import warnings
 import re
 import enum
 
@@ -182,7 +181,7 @@ class GoogleDriveDriver(Driver):
             raise DriverError("Google Drive folder exists error: " + str(e))
 
         if len(items) > 1:
-            warnings.warn(
+            print(
                 f"Multiple folders with name '{folder_name}' found. Using the first one found."
             )
 
@@ -272,7 +271,7 @@ class GoogleDriveDriver(Driver):
             )
 
         if not emails_to_share_with:
-            warnings.warn("Google Drive sharing: Not shared with any user")
+            print("Google Drive sharing: Not shared with any user")
 
         return emails_to_share_with
 
