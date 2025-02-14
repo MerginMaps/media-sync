@@ -8,19 +8,21 @@ on:
     - ".github/workflows/tests_mergin_media_sync.yaml"
 
 env:
-  TEST_MERGIN_URL: https://test.dev.merginmaps.com
+  TEST_MERGIN_URL: https://app.dev.merginmaps.com
   TEST_API_USERNAME: test_media_sync
   TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
   TEST_API_WORKSPACE: test-media-sync
   TEST_MINIO_URL: 127.0.0.1:9000
   TEST_MINIO_ACCESS_KEY: minioaccesskey
   TEST_MINIO_SECRET_KEY: miniosecretkey
+  TEST_GOOGLE_DRIVE_FOLDER: SAVE_FOLDER
+  TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE: google-credentials.json
 
 jobs:
 
   Tests-for-Mergin-Maps-Media-Sync:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
 
@@ -29,6 +31,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Save Google Credentials File
+        run: echo "${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE }}" | base64 -d > $TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
 
       - name: Install Python dependencies
         run: |

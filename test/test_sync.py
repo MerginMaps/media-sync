@@ -11,7 +11,7 @@ import os
 import shutil
 import sqlite3
 
-from drivers import MinioDriver, LocalDriver
+from drivers import MinioDriver, LocalDriver, GoogleDriveDriver
 from media_sync import (
     main,
     config,
@@ -20,6 +20,7 @@ from media_sync import (
     mc_download,
     MediaSyncError,
 )
+from config import validate_config, ConfigError
 
 from .conftest import (
     API_USER,
@@ -30,9 +31,13 @@ from .conftest import (
     MINIO_URL,
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
+    GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
+    GOOGLE_DRIVE_FOLDER,
     cleanup,
     prepare_mergin_project,
 )
+
+from .utils import google_drive_delete_folder, google_drive_list_files_in_folder
 
 
 def test_sync(mc):
@@ -554,3 +559,78 @@ def test_sync_without_references(mc, project_name: str, config_update: dict):
     sql = "SELECT count(*) FROM notes WHERE ext_url IS NULL"
     gpkg_cur.execute(sql)
     assert gpkg_cur.fetchone()[0] == 3
+
+
+def test_google_drive_backend(mc):
+    """Test media sync connected to google drive backend"""
+    project_name = "mediasync_test_googledrive"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+
+    cleanup(mc, full_project_name, [work_project_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    # invalid config
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "google_drive",
+            "GOOGLE_DRIVE__FOLDER": GOOGLE_DRIVE_FOLDER,
+            "GOOGLE_DRIVE__SHARE_WITH": "",
+        }
+    )
+
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+    # patch config to fit testing purposes
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "google_drive",
+            "GOOGLE_DRIVE__SERVICE_ACCOUNT_FILE": GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
+            "GOOGLE_DRIVE__FOLDER": GOOGLE_DRIVE_FOLDER,
+            "GOOGLE_DRIVE__SHARE_WITH": "",
+        }
+    )
+
+    google_drive_delete_folder(GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER)
+
+    main()
+
+    google_drive_files = google_drive_list_files_in_folder(
+        GoogleDriveDriver(config), GOOGLE_DRIVE_FOLDER
+    )
+
+    assert "img1.png" in google_drive_files
+    assert "images/img2.jpg" in google_drive_files
+
+    # files in mergin project still exist (copy mode)
+    assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))

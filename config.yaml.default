@@ -24,6 +24,11 @@ minio:
   region:
   bucket_subpath:
 
+google_drive:
+  service_account_file: 
+  folder:
+  share_with:
+
 references:
   - file: survey.gpkg
     table: notes

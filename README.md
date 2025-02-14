@@ -102,7 +102,7 @@ one with reference to local file and another for external URL where file can be 
 
 Initialization:
 
-1. set up configuration in config.ini  (see config.ini.default for a sample)
+1. set up configuration in config.yaml  (see config.yaml.default for a sample)
 2. all settings can be overridden with env variables (see docker example above)
 3. run media-sync
 ```shell
