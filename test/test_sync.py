@@ -268,7 +268,7 @@ def test_minio_backend(mc):
             "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
             "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
             "MINIO__BUCKET": "test",
-            "MINIO__REGION": MINIO_REGION
+            "MINIO__REGION": MINIO_REGION,
         }
     )
 
