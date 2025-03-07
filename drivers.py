@@ -84,7 +84,7 @@ class MinioDriver(Driver):
 
         try:
             self.client = Minio(
-                endpoint=config.minio.endpoint.split("//")[-1], # Allow user to specify URL (https://) to avoid errors
+                endpoint=config.minio.endpoint.split("//")[-1],
                 access_key=config.minio.access_key,
                 secret_key=config.minio.secret_key,
                 secure=config.as_bool("minio.secure"),
