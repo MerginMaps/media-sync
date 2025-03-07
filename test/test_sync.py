@@ -31,6 +31,7 @@ from .conftest import (
     MINIO_URL,
     MINIO_ACCESS_KEY,
     MINIO_SECRET_KEY,
+    MINIO_REGION,
     GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
     GOOGLE_DRIVE_FOLDER,
     cleanup,
@@ -267,6 +268,7 @@ def test_minio_backend(mc):
             "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
             "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
             "MINIO__BUCKET": "test",
+            "MINIO__REGION": MINIO_REGION
         }
     )
 
