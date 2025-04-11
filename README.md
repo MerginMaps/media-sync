@@ -1,6 +1,5 @@
 # Mergin Maps Media Sync
-Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are local drive (mostly for testing)
-and MinIO (S3-like) backend.
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are MinIO (S3-like) backend, Google Drive and local drive (mostly used for testing).
 
 Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
 subsequently removed from Mergin Maps project (on cloud).
