@@ -68,6 +68,9 @@ docker run -it \
 
 The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
 
+#### Using Google Drive backend
+For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
+
 ### Installation
 
 #### Docker
