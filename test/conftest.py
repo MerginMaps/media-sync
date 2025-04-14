@@ -14,6 +14,7 @@ TMP_DIR = tempfile.gettempdir()
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_data")
 WORKSPACE = os.environ.get("TEST_API_WORKSPACE")
 MINIO_URL = os.environ.get("TEST_MINIO_URL")
+MINIO_REGION = os.environ.get("TEST_MINIO_REGION")
 MINIO_ACCESS_KEY = os.environ.get("TEST_MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = os.environ.get("TEST_MINIO_SECRET_KEY")
 GOOGLE_DRIVE_FOLDER = os.environ.get("TEST_GOOGLE_DRIVE_FOLDER")
@@ -48,7 +49,7 @@ def setup_config():
             "MINIO__BUCKET": "",
             "MINIO__BUCKET_SUBPATH": "",
             "MINIO__SECURE": False,
-            "MINIO__REGION": "",
+            "MINIO__REGION": MINIO_REGION,
         }
     )
 
