@@ -6,13 +6,14 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import argparse
 import os
 import sqlite3
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 
 from version import __version__
 from drivers import DriverError, create_driver
-from config import config, validate_config, ConfigError
+from config import config, validate_config, ConfigError, update_config_path
 
 
 class MediaSyncError(Exception):
@@ -241,7 +242,29 @@ def media_sync_push(mc, driver, files):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        prog="media_sync.py",
+        description="Synchronization tool for media files in Mergin Maps project to other backends.",
+        epilog="www.merginmaps.com",
+    )
+
+    parser.add_argument(
+        "config_file",
+        nargs="?",
+        default="config.yaml",
+        help="Path to file with configuration. Default value is config.yaml in current working directory.",
+    )
+
+    args = parser.parse_args()    
+    
     print(f"== Starting Mergin Media Sync version {__version__} ==")
+
+    try:
+        update_config_path(args.config_file)
+    except IOError as e:
+        print("Error:" + str(e))
+        return   
+    
     try:
         validate_config(config)
     except ConfigError as e:
