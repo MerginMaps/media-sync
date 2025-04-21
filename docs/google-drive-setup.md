@@ -11,15 +11,15 @@ To set up Google Drive for use with the Google Drive API, follow these steps. Th
    - In the top left corner, you should see the name of your project, or click on `Select a project` and select the project you just created.
 
 3. **Enable Google Drive API**:
-   - In the left menu, click on `APIs & Services` and then `Dashboard`.
+   - In the left menu, click on `APIs & Services`.
    - Click on `Enable APIs and Services`.
    - Search for `Google Drive API`, click on it, and then click `Enable`.
 
 4. **Create a Service Account**:
    - On the left side of the screen, click on `Credentials`.
-   - Click on `Manage service accounts` and then `Create Service Account`.
+   - Click on `Create credentials` and then on `Service account`.
    - Specify the name, account ID, and description, and click `Done`.
-   - Click on the created credentials, select the `Keys` page, and then create a new key using `Add Key`.
+   - Click on the created credentials, select the `Keys` page, and then create a new key using `Add Key` and then `Create new key`.
    - In the following dialog, select `JSON` and click `Create`. The key will be downloaded to your computer (store it safely, as it cannot be redownloaded). In case of a lost key, you can delete it and create a new one.
 
 The downloaded JSON file contains all the necessary information to authenticate with the Google Drive API. Provide this file to the media sync tool as the path to the file:
