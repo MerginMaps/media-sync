@@ -1,10 +1,13 @@
 FROM python:3.11-slim-buster
-MAINTAINER Martin Dobias "martin.dobias@lutraconsulting.co.uk"
+# LABEL instead of MAINTAINER (fixes deprecation warning)
+LABEL maintainer="Martin Dobias <martin.dobias@lutraconsulting.co.uk>"
 
-# to fix issue with mod_spatialite.so
-RUN apt-get update && apt-get install -y libsqlite3-mod-spatialite && rm -rf /var/lib/apt/lists/*
+# to fix issue with mod_spatialite.so and pygeodiff building
+RUN apt-get update && \
+    apt-get install -y libsqlite3-mod-spatialite build-essential cmake libsqlite3-dev && \
+    rm -rf /var/lib/apt/lists/*
 
-# istall dependencies via pipenv system-wide
+# install dependencies via pipenv system-wide
 RUN pip3 install --upgrade pip
 RUN pip3 install pipenv
 COPY Pipfile Pipfile.lock ./
