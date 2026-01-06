@@ -402,8 +402,8 @@ def sync_with_attempt_workspace(mc, driver, baseline_path):
                 promote_attempt_to_baseline(baseline_path, attempt_path)
                 break
             
-            print("Pausing before push to allow a server-side update (test window)...")
-            time.sleep(30)  # <-- test window to simulate server-side update
+            # print("Pausing before push to allow a server-side update (test window)...")
+            #time.sleep(30)  # <-- test window to simulate server-side update
 
 
             media_sync_push(mc, driver, files_to_sync, workspace_path=attempt_path)
