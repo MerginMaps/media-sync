@@ -49,11 +49,6 @@ def run_sync_cycle(mc, driver, logger):
             logger.info("Pulling changes from Mergin maps server...")
             files_to_sync = mc_pull(mc)
 
-            logger.info(
-                "Pausing before push to allow a server-side update (test window)..."
-            )
-            time.sleep(30)  # <-- test window to simulate server-side update
-
             media_sync_push(mc, driver, files_to_sync)
             logger.info("Sync complete.")
 
