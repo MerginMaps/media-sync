@@ -22,6 +22,7 @@ from media_sync import (
     media_sync_push,
     mc_pull,
     MediaSyncError,
+    sync_with_attempt_workspace,
 )
 from version import __version__
 
@@ -38,17 +39,23 @@ def setup_logger():
 
 def run_sync_cycle(mc, driver, logger):
     try:
-        logger.info("Pulling changes from Mergin maps server...")
-        files_to_sync = mc_pull(mc)
+        # In COPY mode, use attempt workspace flow to avoid contaminating baseline
+        if config.operation_mode == "copy":
+            logger.info("Running COPY-mode sync in attempt workspace...")
+            sync_with_attempt_workspace(mc, driver, config.project_working_dir)
+            logger.info("Sync complete (COPY mode, attempt workspace).")
+        else:
+            # MOVE mode: keep existing baseline workflow
+            logger.info("Pulling changes from Mergin maps server...")
+            files_to_sync = mc_pull(mc)
 
-        logger.info("Pausing before push to allow a server-side update (test window)...")
-        time.sleep(60)  # <-- set whatever window you want
+            logger.info(
+                "Pausing before push to allow a server-side update (test window)..."
+            )
+            time.sleep(30)  # <-- test window to simulate server-side update
 
-        
-        media_sync_push(mc, driver, files_to_sync)
-        logger.info("Sync complete.")
-
-
+            media_sync_push(mc, driver, files_to_sync)
+            logger.info("Sync complete.")
 
     except MediaSyncError as e:
         logger.error(f"Media sync error: {e}")
