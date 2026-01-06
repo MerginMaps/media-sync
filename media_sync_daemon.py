@@ -43,8 +43,7 @@ def run_sync_cycle(mc, driver, logger):
         media_sync_push(mc, driver, files_to_sync)
         logger.info("Sync complete.")
 
-        # Force garbage collection
-        gc.collect()
+
 
     except MediaSyncError as e:
         logger.error(f"Media sync error: {e}")
