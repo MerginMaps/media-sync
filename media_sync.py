@@ -387,6 +387,7 @@ def sync_with_attempt_workspace(mc, driver, baseline_path):
         mp = MerginProject(baseline_path)
         project_full_name = mp.project_full_name()
         server_version = _get_server_version(mc, project_full_name)
+        print(f"Attempting against server version at start of attempt: {server_version}")
         
         # Create attempt workspace
         attempt_path = create_attempt_workspace(baseline_path, server_version)
