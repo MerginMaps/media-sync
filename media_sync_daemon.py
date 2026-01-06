@@ -101,14 +101,27 @@ def main():
         # Check token expiry
         try:
             delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.warning(
+                f"Error checking Mergin token expiration (skipping refresh this cycle): {e}"
+            )
+        else:
             if delta.total_seconds() < 3600:
                 logger.info("Refreshing Mergin maps server auth token...")
-                mc = create_mergin_client()
-        except Exception as e:
-            logger.warning(f"Error checking Mergin maps server token expiration: {e}")
+                try:
+                    mc = create_mergin_client()
+                except MediaSyncError as e:
+                    # MediaSyncError already wraps LoginError/ClientError from MerginClient
+                    logger.warning(
+                        f"Failed to refresh Mergin maps server auth token "
+                        f"(will retry next cycle): {e}"
+                    )
+                else:
+                    logger.info("Mergin maps server auth token refreshed successfully.")
 
         logger.info(f"Sleeping for {sleep_time} seconds...")
         time.sleep(sleep_time)
+
 
 
 if __name__ == "__main__":
