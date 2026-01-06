@@ -366,8 +366,15 @@ def break_hardlinks_for_non_media(attempt_path):
 def promote_attempt_to_baseline(baseline_path, attempt_path):
     """Rename attempt workspace to become baseline"""
     print(f"Promoting attempt workspace to baseline...")
+    backup_path = baseline_path + "_old"
+
+    # If a previous backup exists, remove it (POC: keep only one backup)
+    if os.path.exists(backup_path):
+        print(f"Removing existing backup directory: {backup_path}")
+        shutil.rmtree(backup_path)
+
     if os.path.exists(baseline_path):
-        os.rename(baseline_path, baseline_path + "_old")
+        os.rename(baseline_path, backup_path)
     os.rename(attempt_path, baseline_path)
     print("Promotion complete")
 
