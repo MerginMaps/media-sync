@@ -102,7 +102,13 @@ class MinioDriver(Driver):
 
             # construct base url for bucket
             scheme = "https://" if config.as_bool("minio.secure") else "http://"
-            self.base_url = scheme + config.minio.endpoint + "/" + self.bucket
+
+            if config.minio.region and "amazonaws" in config.minio.endpoint.lower():
+                self.base_url = (
+                    f"{scheme}{self.bucket}.s3.{config.minio.region}.amazonaws.com"
+                )
+            else:
+                self.base_url = scheme + config.minio.endpoint + "/" + self.bucket
         except S3Error as e:
             raise DriverError("MinIO driver init error: " + str(e))
 
