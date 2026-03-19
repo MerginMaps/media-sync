@@ -1,5 +1,5 @@
 # Mergin Maps Media Sync
-Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are MinIO (S3-like) backend, Google Drive and local drive (mostly used for testing).
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backends are MinIO (S3-like), Azure Blob Storage, Google Drive and local drive (mostly used for testing).
 
 Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
 subsequently removed from Mergin Maps project (on cloud).
@@ -67,6 +67,37 @@ docker run -it \
 **Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
 The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
+
+#### Using Azure Blob Storage backend
+
+You will need an Azure Storage account. Retrieve the **account name** and one of the **account keys** from the Azure Portal under _Storage account → Access keys_.
+
+```shell
+docker run -it \
+  --name mergin-media-sync \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e MERGIN__PROJECT_NAME=john/my_project \
+  -e DRIVER=azure \
+  -e AZURE_BLOB__ACCOUNT_NAME=mystorageaccount \
+  -e AZURE_BLOB__ACCOUNT_KEY=base64encodedkey== \
+  -e AZURE_BLOB__CONTAINER=my-container \
+  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
+```
+
+The container is created automatically if it does not already exist. Uploaded files are accessible at:
+```
+https://<account_name>.blob.core.windows.net/<container>/<blob_path>
+```
+
+`AZURE_BLOB__BLOB_PATH_PREFIX` is optional. When set, all blobs are placed under that prefix inside the container (e.g. `AZURE_BLOB__BLOB_PATH_PREFIX=myproject` stores files at `myproject/img1.png`).
+
+| Environment variable | Required | Description |
+|---|---|---|
+| `AZURE_BLOB__ACCOUNT_NAME` | yes | Azure Storage account name |
+| `AZURE_BLOB__ACCOUNT_KEY` | yes | Storage account access key (found under _Access keys_ in the portal) |
+| `AZURE_BLOB__CONTAINER` | yes | Blob container name (created automatically if missing) |
+| `AZURE_BLOB__BLOB_PATH_PREFIX` | no | Optional path prefix for all uploaded blobs |
 
 #### Using Google Drive backend
 For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
@@ -136,6 +167,10 @@ To run automatic tests:
   export TEST_MINIO_URL="localhost:9000"
   export TEST_MINIO_ACCESS_KEY=EXAMPLE
   export TEST_MINIO_SECRET_KEY=EXAMPLEKEY
+  # Azure Blob Storage backend tests (optional)
+  export TEST_AZURE_STORAGE_ACCOUNT_NAME=<account_name>
+  export TEST_AZURE_STORAGE_ACCOUNT_KEY=<account_key>
+  export TEST_AZURE_STORAGE_CONTAINER=<container>
   pipenv run pytest test/
 ```
 
