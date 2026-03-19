@@ -33,6 +33,7 @@ def validate_config(config):
         config.driver == DriverType.LOCAL
         or config.driver == DriverType.MINIO
         or config.driver == DriverType.GOOGLE_DRIVE
+        or config.driver == DriverType.AZURE
     ):
         raise ConfigError("Config error: Unsupported driver")
 
@@ -77,6 +78,17 @@ def validate_config(config):
         and hasattr(config.google_drive, "share_with")
     ):
         raise ConfigError("Config error: Incorrect GoogleDrive driver settings")
+
+    if config.driver == DriverType.AZURE and not (
+        hasattr(config, "azure_blob")
+        and hasattr(config.azure_blob, "account_name")
+        and hasattr(config.azure_blob, "account_key")
+        and hasattr(config.azure_blob, "container")
+        and config.azure_blob.account_name
+        and config.azure_blob.account_key
+        and config.azure_blob.container
+    ):
+        raise ConfigError("Config error: Incorrect Azure Blob Storage driver settings")
 
 
 def update_config_path(

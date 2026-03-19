@@ -11,7 +11,7 @@ import os
 import shutil
 import sqlite3
 
-from drivers import MinioDriver, LocalDriver, GoogleDriveDriver
+from drivers import MinioDriver, LocalDriver, GoogleDriveDriver, AzureBlobDriver
 from media_sync import (
     main,
     config,
@@ -33,6 +33,9 @@ from .conftest import (
     MINIO_SECRET_KEY,
     GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
     GOOGLE_DRIVE_FOLDER,
+    AZURE_STORAGE_ACCOUNT_NAME,
+    AZURE_STORAGE_ACCOUNT_KEY,
+    AZURE_STORAGE_CONTAINER,
     cleanup,
     prepare_mergin_project,
 )
@@ -634,3 +637,111 @@ def test_google_drive_backend(mc):
     # files in mergin project still exist (copy mode)
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+
+
+def test_azure_blob_backend(mc):
+    """Test media sync connected to Azure Blob Storage backend (needs valid Azure credentials)"""
+    project_name = "mediasync_test_azure"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+
+    cleanup(mc, full_project_name, [work_project_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    # invalid config - missing required fields
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "azure",
+            "AZURE_BLOB__ACCOUNT_NAME": AZURE_STORAGE_ACCOUNT_NAME,
+            "AZURE_BLOB__ACCOUNT_KEY": "",
+            "AZURE_BLOB__CONTAINER": AZURE_STORAGE_CONTAINER,
+        }
+    )
+
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+    # patch config to fit testing purposes
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "azure",
+            "AZURE_BLOB__ACCOUNT_NAME": AZURE_STORAGE_ACCOUNT_NAME,
+            "AZURE_BLOB__ACCOUNT_KEY": AZURE_STORAGE_ACCOUNT_KEY,
+            "AZURE_BLOB__CONTAINER": AZURE_STORAGE_CONTAINER,
+        }
+    )
+
+    main()
+
+    # verify files were uploaded to Azure Blob Storage
+    driver = AzureBlobDriver(config)
+    blob_names = [b.name for b in driver.client.list_blobs()]
+    assert "img1.png" in blob_names
+    assert "images/img2.jpg" in blob_names
+
+    # files in mergin project still exist (copy mode)
+    assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+
+    # test with blob_path_prefix
+    cleanup(mc, full_project_name, [work_project_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "azure",
+            "AZURE_BLOB__ACCOUNT_NAME": AZURE_STORAGE_ACCOUNT_NAME,
+            "AZURE_BLOB__ACCOUNT_KEY": AZURE_STORAGE_ACCOUNT_KEY,
+            "AZURE_BLOB__CONTAINER": AZURE_STORAGE_CONTAINER,
+            "AZURE_BLOB__BLOB_PATH_PREFIX": "subPath",
+        }
+    )
+
+    main()
+
+    driver = AzureBlobDriver(config)
+    blob_names = [b.name for b in driver.client.list_blobs()]
+    assert "subPath/img1.png" in blob_names
+    assert "subPath/images/img2.jpg" in blob_names
