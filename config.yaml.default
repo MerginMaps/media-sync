@@ -25,9 +25,15 @@ minio:
   bucket_subpath:
 
 google_drive:
-  service_account_file: 
+  service_account_file:
   folder:
   share_with:
+
+dropbox:
+  app_key:
+  app_secret:
+  refresh_token:
+  folder:    # optional root folder inside Dropbox (e.g. mediasync)
 
 references:
   - file: survey.gpkg

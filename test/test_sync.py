@@ -11,7 +11,7 @@ import os
 import shutil
 import sqlite3
 
-from drivers import MinioDriver, LocalDriver, GoogleDriveDriver
+from drivers import MinioDriver, LocalDriver, GoogleDriveDriver, DropboxDriver
 from media_sync import (
     main,
     config,
@@ -33,6 +33,10 @@ from .conftest import (
     MINIO_SECRET_KEY,
     GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
     GOOGLE_DRIVE_FOLDER,
+    DROPBOX_APP_KEY,
+    DROPBOX_APP_SECRET,
+    DROPBOX_REFRESH_TOKEN,
+    DROPBOX_FOLDER,
     cleanup,
     prepare_mergin_project,
 )
@@ -634,3 +638,92 @@ def test_google_drive_backend(mc):
     # files in mergin project still exist (copy mode)
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+
+
+def test_dropbox_backend(mc):
+    """Test media sync connected to Dropbox backend (needs valid Dropbox credentials)"""
+    project_name = "mediasync_test_dropbox"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+
+    cleanup(mc, full_project_name, [work_project_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    # invalid config - missing refresh_token
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "dropbox",
+            "DROPBOX__APP_KEY": DROPBOX_APP_KEY,
+            "DROPBOX__APP_SECRET": DROPBOX_APP_SECRET,
+            "DROPBOX__REFRESH_TOKEN": "",
+            "DROPBOX__FOLDER": DROPBOX_FOLDER,
+        }
+    )
+
+    with pytest.raises(ConfigError):
+        validate_config(config)
+
+    # patch config to fit testing purposes
+    config.update(
+        {
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "OPERATION_MODE": "copy",
+            "REFERENCES": [
+                {
+                    "file": None,
+                    "table": None,
+                    "local_path_column": None,
+                    "driver_path_column": None,
+                }
+            ],
+            "DRIVER": "dropbox",
+            "DROPBOX__APP_KEY": DROPBOX_APP_KEY,
+            "DROPBOX__APP_SECRET": DROPBOX_APP_SECRET,
+            "DROPBOX__REFRESH_TOKEN": DROPBOX_REFRESH_TOKEN,
+            "DROPBOX__FOLDER": DROPBOX_FOLDER,
+        }
+    )
+
+    main()
+
+    # verify files were uploaded to Dropbox
+    driver = DropboxDriver(config)
+    folder_path = f"/{DROPBOX_FOLDER}"
+    dropbox_files = [
+        entry.name
+        for entry in driver.client.files_list_folder(
+            folder_path, recursive=True
+        ).entries
+    ]
+    assert "img1.png" in dropbox_files
+    assert "img2.jpg" in dropbox_files
+
+    # returned URL should be a direct-download Dropbox link
+    url = driver.upload_file(os.path.join(work_project_dir, "img1.png"), "img1.png")
+    assert url.startswith("https://www.dropbox.com/")
+    assert "dl=1" in url
+
+    # files in mergin project still exist (copy mode)
+    assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+
+    # cleanup Dropbox folder after test
+    driver.client.files_delete_v2(folder_path)

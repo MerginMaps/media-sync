@@ -1,5 +1,5 @@
 # Mergin Maps Media Sync
-Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are MinIO (S3-like) backend, Google Drive and local drive (mostly used for testing).
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backends are MinIO (S3-like), Dropbox, Google Drive and local drive (mostly used for testing).
 
 Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
 subsequently removed from Mergin Maps project (on cloud).
@@ -67,6 +67,58 @@ docker run -it \
 **Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
 The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
+
+#### Using Dropbox backend
+
+You will need a Dropbox app with an OAuth2 refresh token. Follow these steps once to generate your credentials:
+
+1. Go to [https://www.dropbox.com/developers/apps](https://www.dropbox.com/developers/apps) and create a new app.
+   - Choose **Scoped access** → **Full Dropbox** (or **App folder** if you prefer isolation).
+   - Under _Permissions_, enable **`files.content.write`** and **`sharing.write`**, then save.
+2. On the app's _Settings_ tab, note your **App key** and **App secret**.
+3. Generate a refresh token by running the following and following the prompts:
+   ```shell
+   pip install dropbox
+   python3 - <<'EOF'
+   import dropbox
+   from dropbox import DropboxOAuth2FlowNoRedirect
+
+   APP_KEY = "<your_app_key>"
+   APP_SECRET = "<your_app_secret>"
+
+   auth_flow = DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET, token_access_type="offline")
+   print("Authorize this app:", auth_flow.start())
+   code = input("Enter auth code: ").strip()
+   result = auth_flow.finish(code)
+   print("Refresh token:", result.refresh_token)
+   EOF
+   ```
+4. Copy the printed **refresh token** — this is a long-lived credential that media-sync uses to authenticate.
+
+```shell
+docker run -it \
+  --name mergin-media-sync \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e MERGIN__PROJECT_NAME=john/my_project \
+  -e DRIVER=dropbox \
+  -e DROPBOX__APP_KEY=your_app_key \
+  -e DROPBOX__APP_SECRET=your_app_secret \
+  -e DROPBOX__REFRESH_TOKEN=your_refresh_token \
+  -e DROPBOX__FOLDER=mediasync \
+  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
+```
+
+Uploaded files are exposed as direct-download shared links (`?dl=1`) stored in the GeoPackage reference column. If a shared link already exists for a file it is reused automatically.
+
+`DROPBOX__FOLDER` is optional. When set, all files are placed under that folder in your Dropbox (e.g. `DROPBOX__FOLDER=mediasync` stores files at `/mediasync/img1.png`).
+
+| Environment variable | Required | Description |
+|---|---|---|
+| `DROPBOX__APP_KEY` | yes | Dropbox app key (from the developer console) |
+| `DROPBOX__APP_SECRET` | yes | Dropbox app secret (from the developer console) |
+| `DROPBOX__REFRESH_TOKEN` | yes | Long-lived OAuth2 refresh token (generated above) |
+| `DROPBOX__FOLDER` | no | Root folder inside Dropbox for all uploaded files |
 
 #### Using Google Drive backend
 For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
@@ -136,6 +188,11 @@ To run automatic tests:
   export TEST_MINIO_URL="localhost:9000"
   export TEST_MINIO_ACCESS_KEY=EXAMPLE
   export TEST_MINIO_SECRET_KEY=EXAMPLEKEY
+  # Dropbox backend tests (optional)
+  export TEST_DROPBOX_APP_KEY=<app_key>
+  export TEST_DROPBOX_APP_SECRET=<app_secret>
+  export TEST_DROPBOX_REFRESH_TOKEN=<refresh_token>
+  export TEST_DROPBOX_FOLDER=mediasync-test
   pipenv run pytest test/
 ```
 

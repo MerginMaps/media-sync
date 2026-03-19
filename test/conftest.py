@@ -20,6 +20,10 @@ GOOGLE_DRIVE_FOLDER = os.environ.get("TEST_GOOGLE_DRIVE_FOLDER")
 GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.environ.get(
     "TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE"
 )
+DROPBOX_APP_KEY = os.environ.get("TEST_DROPBOX_APP_KEY")
+DROPBOX_APP_SECRET = os.environ.get("TEST_DROPBOX_APP_SECRET")
+DROPBOX_REFRESH_TOKEN = os.environ.get("TEST_DROPBOX_REFRESH_TOKEN")
+DROPBOX_FOLDER = os.environ.get("TEST_DROPBOX_FOLDER", "mediasync-test")
 
 
 @pytest.fixture(scope="function")
@@ -49,6 +53,10 @@ def setup_config():
             "MINIO__BUCKET_SUBPATH": "",
             "MINIO__SECURE": False,
             "MINIO__REGION": "",
+            "DROPBOX__APP_KEY": "",
+            "DROPBOX__APP_SECRET": "",
+            "DROPBOX__REFRESH_TOKEN": "",
+            "DROPBOX__FOLDER": "",
         }
     )
 

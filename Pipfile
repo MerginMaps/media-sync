@@ -8,10 +8,12 @@ pytest = "~=6.2"
 pytest-cov = "~=3.0"
 
 [packages]
+setuptools = "*"
 minio = "~=7.1"
 mergin-client = "==0.9.3"
 dynaconf = {extras = ["ini"],version = "~=3.1"}
 google-api-python-client = "==2.24"
+dropbox = "~=12.0"
 
 [requires]
 python_version = "3"
