@@ -709,15 +709,15 @@ def test_dropbox_backend(mc):
     folder_path = f"/{DROPBOX_FOLDER}"
     dropbox_files = [
         entry.name
-        for entry in driver.client.files_list_folder(folder_path, recursive=True).entries
+        for entry in driver.client.files_list_folder(
+            folder_path, recursive=True
+        ).entries
     ]
     assert "img1.png" in dropbox_files
     assert "img2.jpg" in dropbox_files
 
     # returned URL should be a direct-download Dropbox link
-    url = driver.upload_file(
-        os.path.join(work_project_dir, "img1.png"), "img1.png"
-    )
+    url = driver.upload_file(os.path.join(work_project_dir, "img1.png"), "img1.png")
     assert url.startswith("https://www.dropbox.com/")
     assert "dl=1" in url
 
