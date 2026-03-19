@@ -21,11 +21,15 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaFileUpload
 
+from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import AzureError
+
 
 class DriverType(enum.Enum):
     LOCAL = "local"
     MINIO = "minio"
     GOOGLE_DRIVE = "google_drive"
+    AZURE = "azure"
 
     def __eq__(self, value):
         if isinstance(value, str):
@@ -282,6 +286,46 @@ class GoogleDriveDriver(Driver):
         return emails_to_share_with
 
 
+class AzureBlobDriver(Driver):
+    """Driver to handle connection to Azure Blob Storage"""
+
+    def __init__(self, config):
+        super(AzureBlobDriver, self).__init__(config)
+
+        try:
+            self.account_name = config.azure_blob.account_name
+            connection_string = (
+                f"DefaultEndpointsProtocol=https;"
+                f"AccountName={self.account_name};"
+                f"AccountKey={config.azure_blob.account_key};"
+                f"EndpointSuffix=core.windows.net"
+            )
+            service_client = BlobServiceClient.from_connection_string(connection_string)
+            self.container = config.azure_blob.container
+            container_client = service_client.get_container_client(self.container)
+            if not container_client.exists():
+                container_client.create_container()
+            self.client = container_client
+
+            self.blob_path_prefix = None
+            if hasattr(config.azure_blob, "blob_path_prefix"):
+                if config.azure_blob.blob_path_prefix:
+                    self.blob_path_prefix = config.azure_blob.blob_path_prefix
+
+        except AzureError as e:
+            raise DriverError("Azure Blob Storage driver init error: " + str(e))
+
+    def upload_file(self, src: str, obj_path: str) -> str:
+        if self.blob_path_prefix:
+            obj_path = f"{self.blob_path_prefix}/{obj_path}"
+        try:
+            with open(src, "rb") as data:
+                self.client.upload_blob(name=obj_path, data=data, overwrite=True)
+        except AzureError as e:
+            raise DriverError("Azure Blob Storage driver error: " + str(e))
+        return f"https://{self.account_name}.blob.core.windows.net/{self.container}/{obj_path}"
+
+
 def create_driver(config):
     """Create driver object based on type defined in config"""
     driver = None
@@ -291,4 +335,6 @@ def create_driver(config):
         driver = MinioDriver(config)
     elif config.driver == DriverType.GOOGLE_DRIVE:
         driver = GoogleDriveDriver(config)
+    elif config.driver == DriverType.AZURE:
+        driver = AzureBlobDriver(config)
     return driver

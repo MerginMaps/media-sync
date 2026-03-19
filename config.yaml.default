@@ -25,9 +25,15 @@ minio:
   bucket_subpath:
 
 google_drive:
-  service_account_file: 
+  service_account_file:
   folder:
   share_with:
+
+azure_blob:
+  account_name:
+  account_key:
+  container:
+  blob_path_prefix:
 
 references:
   - file: survey.gpkg

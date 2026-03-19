@@ -20,6 +20,9 @@ GOOGLE_DRIVE_FOLDER = os.environ.get("TEST_GOOGLE_DRIVE_FOLDER")
 GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.environ.get(
     "TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE"
 )
+AZURE_STORAGE_ACCOUNT_NAME = os.environ.get("TEST_AZURE_STORAGE_ACCOUNT_NAME")
+AZURE_STORAGE_ACCOUNT_KEY = os.environ.get("TEST_AZURE_STORAGE_ACCOUNT_KEY")
+AZURE_STORAGE_CONTAINER = os.environ.get("TEST_AZURE_STORAGE_CONTAINER")
 
 
 @pytest.fixture(scope="function")
@@ -49,6 +52,10 @@ def setup_config():
             "MINIO__BUCKET_SUBPATH": "",
             "MINIO__SECURE": False,
             "MINIO__REGION": "",
+            "AZURE_BLOB__ACCOUNT_NAME": "",
+            "AZURE_BLOB__ACCOUNT_KEY": "",
+            "AZURE_BLOB__CONTAINER": "",
+            "AZURE_BLOB__BLOB_PATH_PREFIX": "",
         }
     )
 
