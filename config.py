@@ -33,6 +33,7 @@ def validate_config(config):
         config.driver == DriverType.LOCAL
         or config.driver == DriverType.MINIO
         or config.driver == DriverType.GOOGLE_DRIVE
+        or config.driver == DriverType.DROPBOX
     ):
         raise ConfigError("Config error: Unsupported driver")
 
@@ -77,6 +78,17 @@ def validate_config(config):
         and hasattr(config.google_drive, "share_with")
     ):
         raise ConfigError("Config error: Incorrect GoogleDrive driver settings")
+
+    if config.driver == DriverType.DROPBOX and not (
+        hasattr(config, "dropbox")
+        and hasattr(config.dropbox, "app_key")
+        and hasattr(config.dropbox, "app_secret")
+        and hasattr(config.dropbox, "refresh_token")
+        and config.dropbox.app_key
+        and config.dropbox.app_secret
+        and config.dropbox.refresh_token
+    ):
+        raise ConfigError("Config error: Incorrect Dropbox driver settings")
 
 
 def update_config_path(

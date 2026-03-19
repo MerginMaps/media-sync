@@ -21,11 +21,17 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaFileUpload
 
+import dropbox
+from dropbox.exceptions import ApiError, AuthError
+from dropbox.files import WriteMode
+from dropbox.sharing import SharedLinkAlreadyExistsMetadata
+
 
 class DriverType(enum.Enum):
     LOCAL = "local"
     MINIO = "minio"
     GOOGLE_DRIVE = "google_drive"
+    DROPBOX = "dropbox"
 
     def __eq__(self, value):
         if isinstance(value, str):
@@ -282,6 +288,69 @@ class GoogleDriveDriver(Driver):
         return emails_to_share_with
 
 
+class DropboxDriver(Driver):
+    """Driver to handle connection to Dropbox"""
+
+    def __init__(self, config):
+        super(DropboxDriver, self).__init__(config)
+
+        try:
+            self.client = dropbox.Dropbox(
+                app_key=config.dropbox.app_key,
+                app_secret=config.dropbox.app_secret,
+                oauth2_refresh_token=config.dropbox.refresh_token,
+            )
+            self.client.users_get_current_account()
+
+            self.folder = ""
+            if hasattr(config.dropbox, "folder") and config.dropbox.folder:
+                # Normalize to /folder (no trailing slash)
+                self.folder = "/" + config.dropbox.folder.strip("/")
+
+        except AuthError as e:
+            raise DriverError("Dropbox driver init error: " + str(e))
+        except Exception as e:
+            raise DriverError("Dropbox driver init error: " + str(e))
+
+    def upload_file(self, src: str, obj_path: str) -> str:
+        dest_path = f"{self.folder}/{obj_path}"
+        try:
+            with open(src, "rb") as data:
+                self.client.files_upload(
+                    data.read(), dest_path, mode=WriteMode.overwrite
+                )
+            return self._get_shared_link(dest_path)
+        except ApiError as e:
+            raise DriverError("Dropbox driver error: " + str(e))
+
+    def _get_shared_link(self, path: str) -> str:
+        """Return a direct-download shared link for the given Dropbox path."""
+        try:
+            result = self.client.sharing_create_shared_link_with_settings(path)
+            url = result.url
+        except ApiError as e:
+            if (
+                isinstance(e.error, dropbox.sharing.CreateSharedLinkWithSettingsError)
+                and e.error.is_shared_link_already_exists()
+            ):
+                metadata = e.error.get_shared_link_already_exists()
+                if isinstance(metadata, SharedLinkAlreadyExistsMetadata):
+                    url = metadata.metadata.url
+                else:
+                    links = self.client.sharing_list_shared_links(
+                        path=path, direct_only=True
+                    ).links
+                    if not links:
+                        raise DriverError(
+                            f"Dropbox driver error: could not retrieve shared link for {path}"
+                        )
+                    url = links[0].url
+            else:
+                raise DriverError("Dropbox driver error: " + str(e))
+        # Replace ?dl=0 with ?dl=1 for a direct-download URL
+        return url.replace("?dl=0", "?dl=1")
+
+
 def create_driver(config):
     """Create driver object based on type defined in config"""
     driver = None
@@ -291,4 +360,6 @@ def create_driver(config):
         driver = MinioDriver(config)
     elif config.driver == DriverType.GOOGLE_DRIVE:
         driver = GoogleDriveDriver(config)
+    elif config.driver == DriverType.DROPBOX:
+        driver = DropboxDriver(config)
     return driver
