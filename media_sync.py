@@ -14,7 +14,7 @@ from version import __version__
 from drivers import DriverError, create_driver
 from config import config, validate_config, ConfigError
 
-
+# Error handling
 class MediaSyncError(Exception):
     pass
 
