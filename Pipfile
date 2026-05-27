@@ -11,7 +11,7 @@ pytest-cov = "~=3.0"
 minio = "~=7.1"
 mergin-client = "==0.9.3"
 dynaconf = {extras = ["ini"],version = "~=3.1"}
-google-api-python-client = "==2.24"
+google-api-python-client = "~=2.100"
 
 [requires]
 python_version = "3.10"
