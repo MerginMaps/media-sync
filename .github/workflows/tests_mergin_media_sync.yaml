@@ -6,6 +6,8 @@ on:
     - "test/**"
     - "**.py"
     - ".github/workflows/tests_mergin_media_sync.yaml"
+    - "Pipfile"
+    - "Pipfile.lock"
   workflow_dispatch:
 
 env:
