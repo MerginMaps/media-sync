@@ -6,6 +6,9 @@ on:
     - "test/**"
     - "**.py"
     - ".github/workflows/tests_mergin_media_sync.yaml"
+    - "Pipfile"
+    - "Pipfile.lock"
+  workflow_dispatch:
 
 env:
   TEST_MERGIN_URL: https://app.dev.merginmaps.com
@@ -31,7 +34,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-      
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
       - name: Save Google Credentials File
         run: echo "${{ secrets.GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE }}" | base64 -d > $TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
 

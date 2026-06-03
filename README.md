@@ -133,6 +133,7 @@ To run automatic tests:
   export TEST_MERGIN_URL=<url>                # testing server
   export TEST_API_USERNAME=<username>
   export TEST_API_PASSWORD=<pwd>
+  export TEST_API_WORKSPACE=<workspace>
   export TEST_MINIO_URL="localhost:9000"
   export TEST_MINIO_ACCESS_KEY=EXAMPLE
   export TEST_MINIO_SECRET_KEY=EXAMPLEKEY
