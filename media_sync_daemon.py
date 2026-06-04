@@ -7,10 +7,14 @@ License: MIT
 """
 
 import argparse
-import sys
 import datetime
+import gc
+import logging
 import os
+import sys
 import time
+
+from config import config, validate_config, ConfigError, update_config_path
 from drivers import DriverError, create_driver
 from media_sync import (
     create_mergin_client,
@@ -19,8 +23,30 @@ from media_sync import (
     mc_pull,
     MediaSyncError,
 )
-from config import config, validate_config, ConfigError, update_config_path
 from version import __version__
+
+
+def setup_logger():
+    logger = logging.getLogger("media-sync")
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
+
+
+def run_sync_cycle(mc, driver, logger):
+    try:
+        logger.info("Pulling changes from Mergin maps server...")
+        files_to_sync = mc_pull(mc)
+        media_sync_push(mc, driver, files_to_sync)
+        logger.info("Sync complete.")
+
+
+
+    except MediaSyncError as e:
+        logger.error(f"Media sync error: {e}")
 
 
 def main():
@@ -34,67 +60,68 @@ def main():
         "config_file",
         nargs="?",
         default="config.yaml",
-        help="Path to file with configuration. Default value is config.yaml in current working directory.",
+        help="Path to file with configuration. Default is ./config.yaml",
     )
 
     args = parser.parse_args()
-
-    print(f"== Starting Mergin Media Sync daemon version {__version__} ==")
+    logger = setup_logger()
+    logger.info(f"== Starting Mergin Media Sync daemon v{__version__} ==")
 
     try:
         update_config_path(args.config_file)
-    except IOError as e:
-        print("Error:" + str(e))
+        validate_config(config)
+    except (IOError, ConfigError) as e:
+        logger.error(f"Configuration error: {e}")
         sys.exit(1)
 
     sleep_time = config.as_int("daemon.sleep_time")
 
     try:
-        validate_config(config)
-    except ConfigError as e:
-        print("Error: " + str(e))
-        return
-
-    try:
         driver = create_driver(config)
     except DriverError as e:
-        print("Error: " + str(e))
-        return
+        logger.error(f"Driver error: {e}")
+        sys.exit(1)
 
-    print("Logging in to Mergin...")
+    logger.info("Logging in to Mergin maps server...")
     try:
         mc = create_mergin_client()
-
-        # initialize or pull changes to sync with latest project version
         if not os.path.exists(config.project_working_dir):
+            logger.info("Project directory not found. Downloading from Mergin maps server...")
             files_to_sync = mc_download(mc)
             media_sync_push(mc, driver, files_to_sync)
     except MediaSyncError as e:
-        print("Error: " + str(e))
-        return
+        logger.error(f"Initial sync error: {e}")
+        sys.exit(1)
 
-    # keep running until killed by ctrl+c:
-    # - sleep N seconds
-    # - pull
-    # - push
+    logger.info("Entering sync loop...")
     while True:
-        print(datetime.datetime.now())
+        logger.info(f"Heartbeat: {datetime.datetime.utcnow().isoformat()} UTC")
+        run_sync_cycle(mc, driver, logger)
+
+        # Check token expiry
         try:
-            files_to_sync = mc_pull(mc)
-            media_sync_push(mc, driver, files_to_sync)
-
-            # check mergin client token expiration
-            delta = mc._auth_session["expire"] - datetime.datetime.now(
-                datetime.timezone.utc
+            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
+        except (AttributeError, KeyError, TypeError) as e:
+            logger.warning(
+                f"Error checking Mergin token expiration (skipping refresh this cycle): {e}"
             )
+        else:
             if delta.total_seconds() < 3600:
-                mc = create_mergin_client()
+                logger.info("Refreshing Mergin maps server auth token...")
+                try:
+                    mc = create_mergin_client()
+                except MediaSyncError as e:
+                    # MediaSyncError already wraps LoginError/ClientError from MerginClient
+                    logger.warning(
+                        f"Failed to refresh Mergin maps server auth token "
+                        f"(will retry next cycle): {e}"
+                    )
+                else:
+                    logger.info("Mergin maps server auth token refreshed successfully.")
 
-        except MediaSyncError as e:
-            print("Error: " + str(e))
-
-        print("Going to sleep")
+        logger.info(f"Sleeping for {sleep_time} seconds...")
         time.sleep(sleep_time)
+
 
 
 if __name__ == "__main__":
