@@ -16,7 +16,8 @@ from media_sync import (
     create_mergin_client,
     mc_download,
     media_sync_push,
-    mc_pull,
+    _sync_project,
+    _project_working_dir,
     MediaSyncError,
 )
 from config import config, validate_config, ConfigError, update_config_path
@@ -55,33 +56,33 @@ def main():
         print("Error: " + str(e))
         return
 
-    try:
-        driver = create_driver(config)
-    except DriverError as e:
-        print("Error: " + str(e))
-        return
-
     print("Logging in to Mergin...")
     try:
         mc = create_mergin_client()
 
-        # initialize or pull changes to sync with latest project version
-        if not os.path.exists(config.project_working_dir):
-            files_to_sync = mc_download(mc)
-            media_sync_push(mc, driver, files_to_sync)
+        # Initial download for projects that have not been downloaded yet
+        for project in config.projects:
+            working_dir = _project_working_dir(project)
+            if not os.path.exists(working_dir):
+                try:
+                    driver = create_driver(config, project)
+                    files_to_sync = mc_download(mc, project)
+                    media_sync_push(mc, driver, project, files_to_sync)
+                except (DriverError, MediaSyncError) as e:
+                    print(f"Error initialising project '{project.project_name}': " + str(e))
+
     except MediaSyncError as e:
         print("Error: " + str(e))
         return
 
     # keep running until killed by ctrl+c:
     # - sleep N seconds
-    # - pull
-    # - push
+    # - pull + push for every project
     while True:
         print(datetime.datetime.now())
         try:
-            files_to_sync = mc_pull(mc)
-            media_sync_push(mc, driver, files_to_sync)
+            for project in config.projects:
+                _sync_project(mc, project)
 
             # check mergin client token expiration
             delta = mc._auth_session["expire"] - datetime.datetime.now(

@@ -1,12 +1,9 @@
 # Mergin Maps Media Sync
-Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are MinIO (S3-like) backend, Google Drive and local drive (mostly used for testing).
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backends are MinIO (S3-like), Google Drive and local drive (mostly used for testing).
 
-Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
-subsequently removed from Mergin Maps project (on cloud).
+Sync works in two modes: in **COPY** mode media files are only copied to the external storage, in **MOVE** mode files are additionally removed from the Mergin Maps project (cloud). The user can choose whether references to media files in the project should be updated to point to the new location (e.g. S3 URL) or left unchanged.
 
-Also user can choose whether references to media files should be updated.
-
-**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
+**IMPORTANT**: The config file format was updated. There is now a single `config.yaml` file and project settings are defined in a `projects` list. Old single-project configs must be migrated (see the Config file structure section below).
 
 ### Quick start
 
@@ -17,56 +14,86 @@ Not sure where to start? Check out our [quick start](docs/quick_start.md) guide 
 Basic principle is that media-sync deamon COPY or MOVE your pictures from Mergin Maps server to other storage backend. Here is an example of MOVE operation:
 ![Overview](docs/images/overview.png)
 
+### Config file structure
+
+Multiple Mergin Maps projects can be configured in a single `config.yaml`. The Mergin user credentials and the storage driver are shared across all projects; each project specifies only its full project name, its own driver destination path and its reference table configuration.
+
+For a quick start, copy `config.yaml.default` to `config.yaml` and edit it. The key sections are:
+
+```yaml
+project_working_dir: /tmp/mediasync   # base dir; each project gets its own sub-folder
+allowed_extensions: [jpg, png]
+operation_mode: copy                  # copy | move
+driver: minio                         # local | minio | google_drive
+
+mergin:
+  url: https://app.merginmaps.com     # optional, defaults to public Mergin Maps instance
+  username: myuser
+  password: mypassword
+
+# Driver connection settings – global, shared by all projects
+minio:
+  endpoint: localhost:9000
+  access_key: ACCESS
+  secret_key: SECRET
+  bucket: mybucket
+  secure: false
+  region:
+  public_url:        # optional: public base URL for DB links (e.g. https://cdn.example.com)
+
+# Per-project settings
+projects:
+  - project_name: myworkspace/project1   # full Mergin project name
+    bucket_subpath: project1             # minio: optional sub-path inside the bucket
+    references:
+      - file: survey.gpkg
+        table: notes
+        local_path_column: photo
+        driver_path_column: ext_url
+
+  - project_name: myworkspace/project2
+    bucket_subpath: project2
+    references: []
+
+daemon:
+   sleep_time: 10
+```
+
+Per-project path field per driver:
+
+| Driver         | Field            | Description                               |
+|----------------|------------------|-------------------------------------------|
+| `local`        | `dest`           | Destination directory                     |
+| `minio`        | `bucket_subpath` | Optional sub-path inside the bucket       |
+| `google_drive` | `folder`         | Google Drive folder name                  |
+
+#### MinIO: separate public URL for database links
+
+By default, the URL stored in the reference table is constructed from `minio.endpoint` and `minio.bucket`.
+If the public-facing domain differs from the upload endpoint (e.g. a CDN, reverse proxy, or load-balanced hostname),
+set `minio.public_url` to the desired base URL:
+
+```yaml
+minio:
+  endpoint: internal-minio.corp:9000   # used for file uploads
+  bucket: media
+  public_url: https://cdn.example.com  # used for URLs stored in the database
+```
+
+The stored link will then be `https://cdn.example.com/<object_path>` instead of
+`http://internal-minio.corp:9000/media/<object_path>`.
+`bucket_subpath` is still applied on top of `public_url` when set.
+
 #### Running with Docker
-To run the container, use a command like the following one:
-```shell
-  docker run -it \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
-```
-The sync process will start, regularly checking Mergin Maps service copy/move media files from a Mergin Maps project to an external storage.
-Local drive is a default backend, you need to mount volume from host machine for data to persist.
 
-#### Update reference table in geopackage
-If you'd like to update references to media files (probably useful with MOVE mode), you can run:
-```shell
-docker run -it \
-  -v /tmp/mediasync:/data \
-  --name mergin-media-sync \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  -e LOCAL__DEST=/data \
-  -e OPERATION_MODE=move \
-  -e REFERENCES = "[{file='my_survey.gpkg', table='my_table', local_path_column='col_with_path', driver_path_column='col_with_ext_url'}]" \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
-```
-Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
+Prepare a `config.yaml` (use `config.yaml.default` as a template) and mount it into the container:
 
-#### Using MinIO backend
-Last, in case you want to switch to different driver, you can run:
 ```shell
 docker run -it \
   --name mergin-media-sync \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  -e MERGIN__PROJECT_NAME=ttest/mediasync_test \
-  -e DRIVER=minio \
-  -e MINIO__ENDPOINT="minio-server-url" \
-  -e MINIO__ACCESS_KEY=access-key \
-  -e MINIO__SECRET_KEY=secret-key \
-  -e MINIO__BUCKET=destination-bucket \
-  -e MINIO__SECURE=1 \
-  -e MINIO__BUCKET_SUBPATH=SubFolder \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
+  -v ${PWD}:/settings \
+  lutraconsulting/mergin-media-sync /settings/config.yaml
 ```
-
-**Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
-
-The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
 
 #### Using Google Drive backend
 For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
@@ -85,36 +112,36 @@ And then building the image:
 ```
 docker build -t mergin_media_sync .
 ```
+
 #### Manual installation
 
 If you would like to avoid the manual installation steps, please follow the guide on using sync with Docker above. We use pipenv for managing python virtual environment.
-
 ```shell
-  pipenv install --three
+pipenv install --three
 ```
 
 If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
 `python -m pip install --upgrade pip`
 
-
 ### How to use
 
 If you want to modify references to media files in some geopackage in your project, please make sure you have two columns there,
 one with reference to local file and another for external URL where file can be downloaded from.
-
 Initialization:
 
-1. set up configuration in config.yaml  (see config.yaml.default for a sample)
-2. all settings can be overridden with env variables (see docker example above)
-3. run media-sync
+1. Set up configuration in config.yaml (see config.yaml.default for a sample).
+2. All settings can be overridden with env variables.
+3. Run media-sync.
+
 ```shell
-  pipenv run python3 media_sync.py
+pipenv run python3 media_sync.py
 ```
 
 ### Running Tests
+
 You need to install also dev packages:
 ```shell
-  pipenv install --three --dev
+pipenv install --three --dev
 ```
 
 and run local minio server:
@@ -150,3 +177,4 @@ To run automatic tests:
    docker tag lutraconsulting/mergin-media-sync lutraconsulting/mergin-media-sync:0.1.0
    docker push lutraconsulting/mergin-media-sync:0.1.0
    docker push lutraconsulting/mergin-media-sync:latest
+   ```
