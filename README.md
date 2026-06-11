@@ -61,12 +61,15 @@ docker run -it \
   -e MINIO__BUCKET=destination-bucket \
   -e MINIO__SECURE=1 \
   -e MINIO__BUCKET_SUBPATH=SubFolder \
+  -e MINIO__PUBLIC_URL="https://my-minio-server.com" \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
 
 **Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
 The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
+
+The specification of `MINIO__PUBLIC_URL` is optional and can be used if the public URL to access files is different from the one specified in `MINIO__ENDPOINT` (e.g. when using a reverse proxy). If not specified, the value of `MINIO__ENDPOINT` will be used as the base URL for accessing files.
 
 #### Using Google Drive backend
 For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
