@@ -49,6 +49,7 @@ def setup_config():
             "MINIO__BUCKET_SUBPATH": "",
             "MINIO__SECURE": False,
             "MINIO__REGION": "",
+            "MINIO__PUBLIC_URL": ""
         }
     )
 

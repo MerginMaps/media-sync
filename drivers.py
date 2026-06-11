@@ -96,14 +96,15 @@ class MinioDriver(Driver):
                 self.client.make_bucket(self.bucket)
 
             self.bucket_subpath = None
-            if hasattr(config.minio, "bucket_subpath"):
-                if config.minio.bucket_subpath:
-                    self.bucket_subpath = config.minio.bucket_subpath
+            if hasattr(config.minio, "bucket_subpath") and config.minio.bucket_subpath:
+                self.bucket_subpath = config.minio.bucket_subpath
 
             # construct base url for bucket
             scheme = "https://" if config.as_bool("minio.secure") else "http://"
 
-            if config.minio.region and "amazonaws" in config.minio.endpoint.lower():
+            if hasattr(config.minio, "public_url") and config.minio.public_url:
+                self.base_url = config.minio.public_url.rstrip("/")
+            elif config.minio.region and "amazonaws" in config.minio.endpoint.lower():
                 self.base_url = (
                     f"{scheme}{self.bucket}.s3.{config.minio.region}.amazonaws.com"
                 )
