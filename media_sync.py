@@ -24,29 +24,39 @@ def _quote_identifier(identifier):
     return '"' + identifier + '"'
 
 
-def _get_project_version():
+def _project_working_dir(project):
+    """Return the working directory for a specific project.
+
+    The base directory from config is combined with the project name so that
+    each project gets its own isolated sub-directory, e.g.:
+        /tmp/mediasync/workspace/my_project
+    """
+    return os.path.join(config.project_working_dir, project.project_name)
+
+
+def _get_project_version(project):
     """Returns the current version of the project"""
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(_project_working_dir(project))
     return mp.version()
 
 
-def _check_has_working_dir():
-    if not os.path.exists(config.project_working_dir):
+def _check_has_working_dir(project):
+    working_dir = _project_working_dir(project)
+    if not os.path.exists(working_dir):
         raise MediaSyncError(
-            "The project working directory does not exist: "
-            + config.project_working_dir
+            "The project working directory does not exist: " + working_dir
         )
 
-    if not os.path.exists(os.path.join(config.project_working_dir, ".mergin")):
+    if not os.path.exists(os.path.join(working_dir, ".mergin")):
         raise MediaSyncError(
             "The project working directory does not seem to contain Mergin project: "
-            + config.project_working_dir
+            + working_dir
         )
 
 
-def _check_pending_changes():
+def _check_pending_changes(project):
     """Check working directory was not modified manually - this is probably uncommitted change from last attempt"""
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(_project_working_dir(project))
     status_push = mp.get_push_changes()
     if status_push["added"] or status_push["updated"] or status_push["removed"]:
         raise MediaSyncError(
@@ -55,7 +65,7 @@ def _check_pending_changes():
         )
 
 
-def _get_media_sync_files(files):
+def _get_media_sync_files(files, project):
     """Return files relevant to media sync from project files"""
     allowed_extensions = config.allowed_extensions
     files_to_upload = [
@@ -64,11 +74,10 @@ def _get_media_sync_files(files):
         if os.path.splitext(f["path"])[1].lstrip(".") in allowed_extensions
     ]
     # filter out files which are not under particular directory in mergin project
-    if "base_path" in config and config.base_path:
-        filtered_files = [
-            f for f in files_to_upload if f["path"].startswith(config.base_path)
+    if project.base_path:
+        files_to_upload = [
+            f for f in files_to_upload if f["path"].startswith(project.base_path)
         ]
-        files_to_upload = filtered_files
     return files_to_upload
 
 
@@ -92,32 +101,35 @@ def create_mergin_client():
         raise MediaSyncError("Mergin client error: " + str(e))
 
 
-def mc_download(mc):
+def mc_download(mc, project):
     """Clone mergin project to local dir
     :param mc: mergin client instance
+    :param project: project config object
     :return: list(dict) list of project files metadata
     """
-    print("Downloading project from Mergin server ...")
+    working_dir = _project_working_dir(project)
+    print(f"Downloading project '{project.project_name}' from Mergin server ...")
     try:
-        mc.download_project(config.mergin.project_name, config.project_working_dir)
+        mc.download_project(project.project_name, working_dir)
     except ClientError as e:
-        # this could be e.g. DNS error
         raise MediaSyncError("Mergin client error on download: " + str(e))
-    mp = MerginProject(config.project_working_dir)
-    print(f"Downloaded {_get_project_version()} from Mergin")
-    files_to_upload = _get_media_sync_files(mp.inspect_files())
+    mp = MerginProject(working_dir)
+    print(f"Downloaded {_get_project_version(project)} from Mergin")
+    files_to_upload = _get_media_sync_files(mp.inspect_files(), project)
     return files_to_upload
 
 
-def mc_pull(mc):
+def mc_pull(mc, project):
     """Pull latest version to synchronize with local dir
     :param mc: mergin client instance
+    :param project: project config object
     :return: list(dict) list of project files metadata
     """
-    print("Pulling from mergin server ...")
-    _check_pending_changes()
+    working_dir = _project_working_dir(project)
+    print(f"Pulling project '{project.project_name}' from mergin server ...")
+    _check_pending_changes(project)
 
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(working_dir)
     local_version = mp.version()
 
     try:
@@ -125,31 +137,31 @@ def mc_pull(mc):
         projects = mc.get_projects_by_names([mp.project_full_name()])
         server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
-        # this could be e.g. DNS error
         raise MediaSyncError("Mergin client error: " + str(e))
 
-    _check_pending_changes()
+    _check_pending_changes(project)
 
     if server_version == local_version:
-        print("No changes on Mergin.")
+        print(f"No changes on Mergin for '{project.project_name}'.")
         return
 
     try:
         status_pull = mp.get_pull_changes(project_info["files"])
-        mc.pull_project(config.project_working_dir)
+        mc.pull_project(working_dir)
     except ClientError as e:
         raise MediaSyncError("Mergin client error on pull: " + str(e))
 
-    print("Pulled new version from Mergin: " + _get_project_version())
+    print("Pulled new version from Mergin: " + _get_project_version(project))
     files_to_upload = _get_media_sync_files(
-        status_pull["added"] + status_pull["updated"]
+        status_pull["added"] + status_pull["updated"], project
     )
     return files_to_upload
 
 
-def _update_references(files):
+def _update_references(project, files):
     """Update references to media files in reference table"""
-    for ref in config.references:
+    working_dir = _project_working_dir(project)
+    for ref in project.references:
         reference_config = [
             ref.file,
             ref.table,
@@ -162,7 +174,7 @@ def _update_references(files):
         print("Updating references ...")
         try:
             gpkg_conn = sqlite3.connect(
-                os.path.join(config.project_working_dir, ref.file)
+                os.path.join(working_dir, ref.file)
             )
             gpkg_conn.enable_load_extension(True)
             gpkg_cur = gpkg_conn.cursor()
@@ -188,16 +200,17 @@ def _update_references(files):
             raise MediaSyncError("SQLITE error: " + str(e))
 
 
-def media_sync_push(mc, driver, files):
+def media_sync_push(mc, driver, project, files):
     if not files:
         return
-    print("Synchronizing files with external drive...")
-    _check_has_working_dir()
+    working_dir = _project_working_dir(project)
+    print(f"Synchronizing files for project '{project.project_name}' with external drive...")
+    _check_has_working_dir(project)
     migrated_files = {}
 
     # TODO make async and parallel for better performance
     for file in files:
-        src = os.path.join(config.project_working_dir, file["path"])
+        src = os.path.join(working_dir, file["path"])
         if not os.path.exists(src):
             print("Missing local file: " + str(file["path"]))
             continue
@@ -212,25 +225,25 @@ def media_sync_push(mc, driver, files):
             continue
 
     # update reference table (if applicable)
-    _update_references(migrated_files)
+    _update_references(project, migrated_files)
 
     # remove from local dir if move mode
     if config.operation_mode == "move":
         for file in migrated_files.keys():
-            src = os.path.join(config.project_working_dir, file)
+            src = os.path.join(working_dir, file)
             os.remove(src)
 
     # push changes to mergin back (with changed references and removed files) if applicable
     try:
-        mp = MerginProject(config.project_working_dir)
+        mp = MerginProject(working_dir)
         status_push = mp.get_push_changes()
         if status_push["added"]:
             raise MediaSyncError(
                 "There are changes to be added - it should never happen"
             )
         if status_push["updated"] or status_push["removed"]:
-            mc.push_project(config.project_working_dir)
-            version = _get_project_version()
+            mc.push_project(working_dir)
+            version = _get_project_version(project)
             print("Pushed new version to Mergin: " + version)
     except (ClientError, MediaSyncError) as e:
         # this could be either because of some temporal error (network, server lock)
@@ -238,6 +251,30 @@ def media_sync_push(mc, driver, files):
         raise MediaSyncError("Mergin client error on push: " + str(e))
 
     print("Sync finished")
+
+
+def _sync_project(mc, project):
+    """Run the full download-or-pull + push cycle for a single project."""
+    working_dir = _project_working_dir(project)
+    try:
+        driver = create_driver(config, project)
+    except DriverError as e:
+        print(f"Error initialising driver for '{project.project_name}': " + str(e))
+        return
+
+    try:
+        if os.path.exists(working_dir):
+            files_to_sync = mc_pull(mc, project)
+        else:
+            files_to_sync = mc_download(mc, project)
+
+        if not files_to_sync:
+            print(f"No files to sync for '{project.project_name}'")
+            return
+
+        media_sync_push(mc, driver, project, files_to_sync)
+    except MediaSyncError as err:
+        print(f"Error syncing '{project.project_name}': " + str(err))
 
 
 def main():
@@ -249,29 +286,16 @@ def main():
         return
 
     try:
-        driver = create_driver(config)
-    except DriverError as e:
-        print("Error: " + str(e))
-        return
-
-    try:
         print("Logging in to Mergin...")
         mc = create_mergin_client()
-        # initialize or pull changes to sync with latest project version
-        if os.path.exists(config.project_working_dir):
-            files_to_sync = mc_pull(mc)
-        else:
-            files_to_sync = mc_download(mc)
-
-        if not files_to_sync:
-            print("No files to sync")
-            return
-
-        # sync media files with external driver
-        media_sync_push(mc, driver, files_to_sync)
-        print("== Media sync done! ==")
     except MediaSyncError as err:
         print("Error: " + str(err))
+        return
+
+    for project in config.projects:
+        _sync_project(mc, project)
+
+    print("== Media sync done! ==")
 
 
 if __name__ == "__main__":
