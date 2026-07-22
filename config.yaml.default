@@ -29,11 +29,14 @@ google_drive:
   folder:
   share_with:
 
-references:
-  - file: survey.gpkg
-    table: notes
-    local_path_column: photo
-    driver_path_column: ext_url
+# Reference rewriting is optional and OFF by default. Uncomment and adjust to
+# have media-sync write uploaded file URLs into a GeoPackage table. Leave empty to only copy files.
+references: []
+#references:
+#  - file: survey.gpkg
+#    table: notes
+#    local_path_column: photo
+#    driver_path_column: ext_url
 
 daemon:
   sleep_time: 10

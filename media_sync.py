@@ -159,11 +159,14 @@ def _update_references(files):
         if not all(reference_config):
             return
 
+        gpkg_path = os.path.join(config.project_working_dir, ref.file)
+        if not os.path.exists(gpkg_path):
+            print(f"Skipping references - file not found in project: {ref.file}")
+            continue
+
         print("Updating references ...")
         try:
-            gpkg_conn = sqlite3.connect(
-                os.path.join(config.project_working_dir, ref.file)
-            )
+            gpkg_conn = sqlite3.connect(gpkg_path)
             gpkg_conn.enable_load_extension(True)
             gpkg_cur = gpkg_conn.cursor()
             gpkg_cur.execute('SELECT load_extension("mod_spatialite")')
