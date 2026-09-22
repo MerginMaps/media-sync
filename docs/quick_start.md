@@ -42,27 +42,49 @@ Upload your project to Mergin Maps, either via web browser or [Mergin plugin](ht
 
 You have now your project ready in Mergin Maps.
 
-## 4. Start syncing
-Download and run media-sync docker image with configuration based on above (you will need to tweak that):
+## 4. Create a config file
+Copy `config.yaml.default` to `config.yaml` and edit it. The important parts for this quick start are:
 
-Note that you may need to escape some characters in your password or username
+```yaml
+project_working_dir: /tmp/mediasync
+allowed_extensions: [jpg, png]
+operation_mode: copy
+driver: minio
+
+mergin:
+  url: https://app.merginmaps.com
+  username: test000
+  password: myStrongPassword
+
+minio:
+  endpoint: minio-server-url
+  access_key: access-key
+  secret_key: secret-key
+  bucket: destination-bucket
+  secure: true
+
+projects:
+  - project_name: test000/media-sync
+    bucket_subpath: media-sync
+    references:
+      - file: survey.gpkg
+        table: notes
+        local_path_column: photo
+        driver_path_column: external_url
+```
+
+You can add more entries under `projects:` to sync multiple Mergin Maps projects with the same driver.
+
+## 5. Start syncing
+Run media-sync docker image with the config file from above:
 
 ```
-$ sudo docker run -it \
+docker run -it \
   --name mergin-media-sync \
-  -e MERGIN__USERNAME=test000 \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=test000/media-sync \
-  -e DRIVER=minio \
-  -e MINIO__ENDPOINT="minio-server-url" \
-  -e MINIO__ACCESS_KEY=access-key \
-  -e MINIO__SECRET_KEY=secret-key \
-  -e MINIO__BUCKET=destination-bucket \
-  -e MINIO__SECRET=1 \
-  -e OPERATION_MODE=copy \
-  -e REFERENCES="[{file='survey.gpkg', table='notes', local_path_column='photo', driver_path_column='external_url'}]" \
-  mergin-media-sync python3 media_sync_daemon.py
+  -v ${PWD}:/settings \
+  lutraconsulting/mergin-media-sync /settings/config.yaml
 ```
+
 and you should see photos copied from your Mergin Maps project to the bucket:
 
 ![bucket](images/bucket.png)
@@ -70,8 +92,5 @@ and you should see photos copied from your Mergin Maps project to the bucket:
 and your references in QGIS project updated:
 
 ![bucket](images/qgis_proj2.png)
-
-If you wish to specify folder within the bucket to store the files you can specify `MINIO__BUCKET_SUBPATH` variable
-ie. `MINIO__BUCKET_SUBPATH=MyFolder` to store files in `MyFolder` instead of root of the bucket.
 
 In order to stop syncing simply stop docker container.

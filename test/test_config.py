@@ -28,7 +28,6 @@ def _reset_config():
             "MERGIN__USERNAME": API_USER,
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
-            "MERGIN__PROJECT_NAME": "test/mediasync",
             "PROJECT_WORKING_DIR": "/tmp/working_project",
             "OPERATION_MODE": "copy",
             "DRIVER": "minio",
@@ -36,7 +35,13 @@ def _reset_config():
             "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
             "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
             "MINIO__BUCKET": "test",
-            "BASE_PATH": "",
+            "PROJECTS": [
+                {
+                    "project_name": "test/mediasync",
+                    "bucket_subpath": "",
+                    "references": [],
+                }
+            ],
         }
     )
 
@@ -46,19 +51,37 @@ def test_config():
     _reset_config()
     validate_config(config)
 
-    _reset_config()
-    config.update({"REFERENCES": None})
-    validate_config(config)
-
+    # references None is normalised to []
     _reset_config()
     config.update(
         {
-            "REFERENCES": [
+            "PROJECTS": [
                 {
-                    "file": "survey.gpkg",
-                    "table": "table",
-                    "local_path_column": "local_path_column",
-                    "driver_path_column": "driver_path_column",
+                    "project_name": "test/mediasync",
+                    "bucket_subpath": "",
+                    "references": None,
+                }
+            ]
+        }
+    )
+    validate_config(config)
+
+    # valid references list
+    _reset_config()
+    config.update(
+        {
+            "PROJECTS": [
+                {
+                    "project_name": "test/mediasync",
+                    "bucket_subpath": "",
+                    "references": [
+                        {
+                            "file": "survey.gpkg",
+                            "table": "table",
+                            "local_path_column": "local_path_column",
+                            "driver_path_column": "driver_path_column",
+                        }
+                    ],
                 }
             ]
         }
@@ -76,9 +99,21 @@ def test_config():
 
     _reset_config()
     with pytest.raises(
-        ConfigError, match="Config error: Incorrect Local driver settings"
+        ConfigError,
+        match="Config error: Project 'test/mediasync' is missing 'dest' for local driver",
     ):
-        config.update({"DRIVER": "local", "LOCAL__DEST": None})
+        config.update(
+            {
+                "DRIVER": "local",
+                "PROJECTS": [
+                    {
+                        "project_name": "test/mediasync",
+                        "dest": None,
+                        "references": [],
+                    }
+                ],
+            }
+        )
         validate_config(config)
 
     _reset_config()
@@ -97,9 +132,19 @@ def test_config():
 
     _reset_config()
     with pytest.raises(
-        ConfigError, match="Config error: Incorrect media reference settings"
+        ConfigError, match="incorrect media reference settings"
     ):
-        config.update({"REFERENCES": [{"file": "survey.gpkg"}]})
+        config.update(
+            {
+                "PROJECTS": [
+                    {
+                        "project_name": "test/mediasync",
+                        "bucket_subpath": "",
+                        "references": [{"file": "survey.gpkg"}],
+                    }
+                ]
+            }
+        )
         validate_config(config)
 
     _reset_config()
@@ -108,6 +153,6 @@ def test_config():
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Incorrect reference settings"):
-        config.update({"REFERENCES": "text"})
+    with pytest.raises(ConfigError, match="'projects' list is missing or empty"):
+        config.update({"PROJECTS": []})
         validate_config(config)

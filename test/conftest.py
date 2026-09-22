@@ -36,12 +36,10 @@ def setup_config():
             "MERGIN__USERNAME": API_USER,
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
-            "MERGIN__PROJECT_NAME": "",
-            "PROJECT_WORKING_DIR": "",
+            "PROJECT_WORKING_DIR": TMP_DIR,
             "OPERATION_MODE": "copy",
             "DRIVER": "",
-            "REFERENCES": [],
-            "BASE_PATH": "",
+            "PROJECTS": [],
             "MINIO__ENDPOINT": "",
             "MINIO__ACCESS_KEY": "",
             "MINIO__SECRET_KEY": "",
@@ -59,6 +57,8 @@ def cleanup(mc, project, dirs):
         print("Deleting project on Mergin server: " + project)
         mc.delete_project_now(project)
     except ClientError as e:
+        print("Deleting project error: " + str(e))
+    except Exception as e:
         print("Deleting project error: " + str(e))
     for d in dirs:
         if os.path.exists(d):

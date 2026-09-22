@@ -3,17 +3,12 @@ allowed_extensions:
  - jpg
  - png
 operation_mode: copy
-base_path:
 driver: local
 
 mergin:
   url: https://app.merginmaps.com
   username: media-sync
   password: super-secret
-  project_name: media-sync/project
-
-local:
-  dest: /tmp/mediasync_copy
 
 minio:
   endpoint: localhost:9000
@@ -22,18 +17,26 @@ minio:
   bucket: test
   secure: false
   region:
-  bucket_subpath:
+  public_url:
 
 google_drive:
-  service_account_file: 
-  folder:
+  service_account_file:
   share_with:
 
-references:
-  - file: survey.gpkg
-    table: notes
-    local_path_column: photo
-    driver_path_column: ext_url
+# List of projects to sync. Each project specifies its full name, the
+# driver-specific destination path and its own reference table configuration.
+projects:
+  - project_name: workspace/project1
+    base_path:
+    # Path settings - only the field matching the active driver is required:
+    dest:            # local driver: destination directory
+    bucket_subpath:  # minio driver: subpath inside the bucket
+    folder:          # google_drive driver: target folder name
+    references:
+      - file: survey.gpkg
+        table: notes
+        local_path_column: photo
+        driver_path_column: ext_url
 
 daemon:
   sleep_time: 10

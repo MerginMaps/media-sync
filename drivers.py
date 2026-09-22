@@ -54,9 +54,9 @@ class Driver:
 class LocalDriver(Driver):
     """Driver to work with local drive, for testing purpose mainly"""
 
-    def __init__(self, config):
+    def __init__(self, config, project):
         super(LocalDriver, self).__init__(config)
-        self.dest = config.local.dest
+        self.dest = project.dest
 
         try:
             if not os.path.exists(self.dest):
@@ -79,7 +79,7 @@ class LocalDriver(Driver):
 class MinioDriver(Driver):
     """Driver to handle connection to minio-like server"""
 
-    def __init__(self, config):
+    def __init__(self, config, project):
         super(MinioDriver, self).__init__(config)
 
         try:
@@ -96,19 +96,21 @@ class MinioDriver(Driver):
                 self.client.make_bucket(self.bucket)
 
             self.bucket_subpath = None
-            if hasattr(config.minio, "bucket_subpath"):
-                if config.minio.bucket_subpath:
-                    self.bucket_subpath = config.minio.bucket_subpath
+            if hasattr(project, "bucket_subpath") and project.bucket_subpath:
+                self.bucket_subpath = project.bucket_subpath
 
-            # construct base url for bucket
+            # construct base url from endpoint and bucket
             scheme = "https://" if config.as_bool("minio.secure") else "http://"
 
-            if config.minio.region and "amazonaws" in config.minio.endpoint.lower():
+            if hasattr(config.minio, "public_url") and config.minio.public_url:
+                self.base_url = config.minio.public_url.rstrip("/")
+            elif config.minio.region and "amazonaws" in config.minio.endpoint.lower():
                 self.base_url = (
                     f"{scheme}{self.bucket}.s3.{config.minio.region}.amazonaws.com"
                 )
             else:
                 self.base_url = scheme + config.minio.endpoint + "/" + self.bucket
+
         except S3Error as e:
             raise DriverError("MinIO driver init error: " + str(e))
 
@@ -126,7 +128,7 @@ class MinioDriver(Driver):
 class GoogleDriveDriver(Driver):
     """Driver to handle connection to Google Drive"""
 
-    def __init__(self, config):
+    def __init__(self, config, project):
         super(GoogleDriveDriver, self).__init__(config)
 
         try:
@@ -139,7 +141,7 @@ class GoogleDriveDriver(Driver):
                 "drive", "v3", credentials=self._credentials
             )
 
-            self._folder = config.google_drive.folder
+            self._folder = project.folder
             self._folder_id = self._folder_exists(self._folder)
 
             if not self._folder_id:
@@ -282,13 +284,13 @@ class GoogleDriveDriver(Driver):
         return emails_to_share_with
 
 
-def create_driver(config):
-    """Create driver object based on type defined in config"""
+def create_driver(config, project):
+    """Create driver object based on type defined in config and project-specific settings"""
     driver = None
     if config.driver == DriverType.LOCAL:
-        driver = LocalDriver(config)
+        driver = LocalDriver(config, project)
     elif config.driver == DriverType.MINIO:
-        driver = MinioDriver(config)
+        driver = MinioDriver(config, project)
     elif config.driver == DriverType.GOOGLE_DRIVE:
-        driver = GoogleDriveDriver(config)
+        driver = GoogleDriveDriver(config, project)
     return driver
