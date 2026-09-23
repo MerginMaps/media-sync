@@ -23,6 +23,7 @@ minio:
   secure: false
   region:
   bucket_subpath:
+  public_url:
 
 google_drive:
   service_account_file: 
