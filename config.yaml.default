@@ -1,3 +1,4 @@
+# only media files with allowed extensions (under base_path) and reference geopackages are downloaded here
 project_working_dir: /tmp/mediasync
 allowed_extensions:
  - jpg
