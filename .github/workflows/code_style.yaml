@@ -11,4 +11,6 @@ jobs:
 
       - uses: psf/black@stable
         with:
+          # bump this version as needed
+          version: 26.1.0
           options: "--check --verbose --diff"

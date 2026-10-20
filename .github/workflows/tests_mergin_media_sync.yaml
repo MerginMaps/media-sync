@@ -57,8 +57,7 @@ jobs:
           -p 127.0.0.1:9001:9001 \
           -e MINIO_ROOT_USER=$TEST_MINIO_ACCESS_KEY \
           -e MINIO_ROOT_PASSWORD=$TEST_MINIO_SECRET_KEY \
-          --entrypoint /bin/bash \
-          minio/minio:latest -c "minio server /data --console-address :9001 --address :9000"
+          pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address :9001 --address :9000
 
       - name: Test MinIO and Mergin Client
         shell: pipenv run python {0}

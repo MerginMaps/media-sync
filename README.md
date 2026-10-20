@@ -121,18 +121,18 @@ Initialization:
 ### Running Tests
 You need to install also dev packages:
 ```shell
-  pipenv install --three --dev
+  pipenv install --dev
 ```
 
-and run local minio server:
+and run local MinIO compatible server (we use [Silo](https://hub.docker.com/r/pgsty/silo), community maintained MinIO fork, same as in CI):
 ```shell
 docker run \
   -p 9000:9000 \
   -p 9001:9001 \
-  --name minio\
+  --name minio \
   -e "MINIO_ROOT_USER=EXAMPLE" \
   -e "MINIO_ROOT_PASSWORD=EXAMPLEKEY" \
-  quay.io/minio/minio server /data --console-address ":9001"
+  pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address ":9001"
 ```
 
 To run automatic tests:

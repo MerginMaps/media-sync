@@ -43,8 +43,6 @@ def run_sync_cycle(mc, driver, logger):
         media_sync_push(mc, driver, files_to_sync)
         logger.info("Sync complete.")
 
-
-
     except MediaSyncError as e:
         logger.error(f"Media sync error: {e}")
 
@@ -86,7 +84,9 @@ def main():
     try:
         mc = create_mergin_client()
         if not os.path.exists(config.project_working_dir):
-            logger.info("Project directory not found. Downloading from Mergin maps server...")
+            logger.info(
+                "Project directory not found. Downloading from Mergin maps server..."
+            )
             files_to_sync = mc_download(mc)
             media_sync_push(mc, driver, files_to_sync)
     except MediaSyncError as e:
@@ -100,7 +100,9 @@ def main():
 
         # Check token expiry
         try:
-            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
+            delta = mc._auth_session["expire"] - datetime.datetime.now(
+                datetime.timezone.utc
+            )
         except (AttributeError, KeyError, TypeError) as e:
             logger.warning(
                 f"Error checking Mergin token expiration (skipping refresh this cycle): {e}"
@@ -121,7 +123,6 @@ def main():
 
         logger.info(f"Sleeping for {sleep_time} seconds...")
         time.sleep(sleep_time)
-
 
 
 if __name__ == "__main__":
