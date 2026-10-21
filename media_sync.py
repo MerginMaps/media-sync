@@ -74,13 +74,13 @@ def _get_media_sync_files(files):
     return files_to_upload
 
 
-def _get_file_filter():
-    """Returns sparse checkout filter, so that only files relevant to media sync are downloaded
-    from mergin project - media files and geopackages with references"""
+def _get_include_filter():
+    """Returns sparse checkout include filter (glob patterns), so that only files relevant
+    to media sync are downloaded - media files and geopackages with references"""
     base_path = glob.escape(config.base_path) if config.get("base_path") else ""
     include = [f"{base_path}*.{glob.escape(ext)}" for ext in config.allowed_extensions]
     include += [glob.escape(ref.file) for ref in config.references if ref.file]
-    return {"include": sorted(set(include)), "exclude": None}
+    return sorted(set(include))
 
 
 def create_mergin_client():
@@ -113,7 +113,7 @@ def mc_download(mc):
         mc.download_project(
             config.mergin.project_name,
             config.project_working_dir,
-            include=_get_file_filter()["include"],
+            include=_get_include_filter(),
         )
     except ClientError as e:
         # this could be e.g. DNS error
@@ -133,7 +133,7 @@ def mc_pull(mc):
     _check_pending_changes()
 
     mp = MerginProject(config.project_working_dir)
-    if mp.file_filter() != _get_file_filter():
+    if mp.file_filter().get("include") != _get_include_filter():
         # configuration has changed (or project was downloaded without filter by older version)
         print(
             "Files to sync have changed in configuration, downloading project again ..."
@@ -153,6 +153,7 @@ def mc_pull(mc):
         raise MediaSyncError("Mergin client error on pull: " + str(e))
 
     version = _get_project_version()
+    # server version has not changed since last pull
     if version == local_version:
         print("No changes on Mergin.")
         return

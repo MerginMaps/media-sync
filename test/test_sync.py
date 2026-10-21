@@ -311,6 +311,62 @@ def test_sparse_checkout(mc):
     assert mc.project_info(full_project_name)["version"] == "v3"
 
 
+def test_legacy_full_checkout(mc):
+    """Test project downloaded by older version of media sync (full checkout without filter)
+    is downloaded again with sparse checkout filter only once"""
+    project_name = "mediasync_test_legacy"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "ALLOWED_EXTENSIONS": ["jpg"],
+            "BASE_PATH": None,
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
+    # full checkout as done by older versions of media sync
+    mc.download_project(full_project_name, work_project_dir)
+    assert os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+    assert MerginProject(work_project_dir).file_filter()["include"] is None
+
+    # first pull downloads project again with filter
+    files_to_sync = mc_pull(mc)
+    assert [f["path"] for f in files_to_sync] == ["images/img2.jpg"]
+    assert MerginProject(work_project_dir).file_filter()["include"] == [
+        "*.jpg",
+        "survey.gpkg",
+    ]
+    assert not os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+    assert not os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    media_sync_push(mc, LocalDriver(config), files_to_sync)
+    assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
+    assert mc.project_info(full_project_name)["version"] == "v2"
+
+    # following pull does not download project again (marker file would be removed)
+    marker_file = os.path.join(work_project_dir, "marker.txt")
+    with open(marker_file, "w") as f:
+        f.write("not part of sparse checkout")
+    assert mc_pull(mc) is None
+    assert os.path.exists(marker_file)
+
+
 def test_minio_backend(mc):
     """Test media sync connected to minio backend (needs local service running)"""
     project_name = "mediasync_test_minio"
@@ -421,7 +477,8 @@ def test_sync_failures(mc):
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
-            # survey.gpkg needs to be downloaded for reference tests below
+            # sparse checkout filter is fixed at download time, so survey.gpkg must be referenced
+            # before mc_download() below, otherwise it is not downloaded for the reference tests
             "REFERENCES": [
                 {
                     "file": "survey.gpkg",
