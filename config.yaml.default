@@ -31,8 +31,8 @@ google_drive:
   folder:
   share_with:
 
-# Reference rewriting is optional and OFF by default. Uncomment and adjust to
-# have media-sync write uploaded file URLs into a GeoPackage table. Leave empty to only copy files.
+# Optional: write URLs of uploaded media files into GeoPackage tables.
+# Empty by default - uncomment and adjust the example below to enable it.
 references: []
 #references:
 #  - file: survey.gpkg

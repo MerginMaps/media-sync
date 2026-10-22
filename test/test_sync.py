@@ -531,8 +531,30 @@ def test_sync_failures(mc):
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
     assert "SQLITE error" in exc.value.args[0]
+
+    # reference file not in project -> fail before media files are removed in move mode
     config.update(
         {
+            "OPERATION_MODE": "move",
+            "REFERENCES": [
+                {
+                    "file": "missing.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
+    with pytest.raises(MediaSyncError) as exc:
+        media_sync_push(mc, driver, files_to_sync)
+    assert "Reference file not found in project" in exc.value.args[0]
+    assert not os.path.exists(os.path.join(work_project_dir, "missing.gpkg"))
+    assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
+
+    config.update(
+        {
+            "OPERATION_MODE": "copy",
             "REFERENCES": [
                 {
                     "file": "survey.gpkg",

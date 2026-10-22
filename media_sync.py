@@ -179,8 +179,7 @@ def _update_references(files):
 
         gpkg_path = os.path.join(config.project_working_dir, ref.file)
         if not os.path.exists(gpkg_path):
-            print(f"Skipping references - file not found in project: {ref.file}")
-            continue
+            raise MediaSyncError(f"Reference file not found in project: {ref.file}")
 
         print("Updating references ...")
         try:
