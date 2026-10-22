@@ -111,3 +111,21 @@ def test_config():
     with pytest.raises(ConfigError, match="Config error: Incorrect reference settings"):
         config.update({"REFERENCES": "text"})
         validate_config(config)
+
+
+def test_config_daemon_max_failed_retries():
+    """`max_failed_retries` in `daemon` section must be a non-negative integer"""
+    _reset_config()
+    config.update({"DAEMON__MAX_FAILED_RETRIES": 5})
+    validate_config(config)
+
+    config.update({"DAEMON__MAX_FAILED_RETRIES": 0})
+    validate_config(config)
+
+    for value in [-1, "abc", 1.5]:
+        config.update({"DAEMON__MAX_FAILED_RETRIES": value})
+        with pytest.raises(
+            ConfigError,
+            match="`max_failed_retries` in `daemon` must be a non-negative integer",
+        ):
+            validate_config(config)
