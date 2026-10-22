@@ -11,6 +11,8 @@ import os
 import shutil
 import sqlite3
 
+from mergin import MerginProject
+
 from drivers import MinioDriver, LocalDriver, GoogleDriveDriver
 from media_sync import (
     main,
@@ -215,7 +217,8 @@ def test_pull_and_sync(mc):
     project_dir = os.path.join(TMP_DIR, project_name + "_create")
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
-    shutil.copytree(work_project_dir, project_dir)
+    # media sync working dir contains only media files (sparse checkout), use full project copy instead
+    mc.download_project(full_project_name, project_dir)
     shutil.copyfile(
         os.path.join(project_dir, "img1.png"), os.path.join(project_dir, "img_new.png")
     )
@@ -234,6 +237,134 @@ def test_pull_and_sync(mc):
     media_sync_push(mc, driver, files_to_sync)
     # check synced image
     assert os.path.exists(os.path.join(driver_dir, "img_new.png"))
+
+
+def test_sparse_checkout(mc):
+    """Test only media files and referenced geopackages are downloaded from mergin project
+    and project is downloaded again when the configuration of synced files changes"""
+    project_name = "mediasync_test_sparse"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "ALLOWED_EXTENSIONS": ["jpg"],
+            "BASE_PATH": None,
+            "REFERENCES": [],
+        }
+    )
+    main()
+    assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
+    # only .jpg files are downloaded, other project files are not
+    assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+    assert not os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    assert not os.path.exists(os.path.join(work_project_dir, "survey.gpkg"))
+    assert not os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+
+    # nothing changed on server
+    assert mc_pull(mc) is None
+
+    # project is updated on server - out of sync scope file only, local version is updated anyway
+    project_dir = os.path.join(TMP_DIR, project_name + "_create")
+    if os.path.exists(project_dir):
+        shutil.rmtree(project_dir)
+    mc.download_project(full_project_name, project_dir)
+    shutil.copyfile(
+        os.path.join(project_dir, "img1.png"), os.path.join(project_dir, "img_new.png")
+    )
+    mc.push_project(project_dir)
+    assert not mc_pull(mc)
+    assert MerginProject(work_project_dir).version() == "v2"
+    assert not os.path.exists(os.path.join(work_project_dir, "img_new.png"))
+
+    # change of synced files leads to new download of the project with new filter
+    config.update(
+        {
+            "ALLOWED_EXTENSIONS": ["png"],
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
+    main()
+    assert os.path.exists(os.path.join(driver_dir, "img1.png"))
+    assert os.path.exists(os.path.join(driver_dir, "img_new.png"))
+    assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    assert os.path.exists(os.path.join(work_project_dir, "survey.gpkg"))
+    assert not os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
+    assert not os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+    # references were updated and pushed
+    assert mc.project_info(full_project_name)["version"] == "v3"
+
+
+def test_legacy_full_checkout(mc):
+    """Test project downloaded by older version of media sync (full checkout without filter)
+    is downloaded again with sparse checkout filter only once"""
+    project_name = "mediasync_test_legacy"
+    full_project_name = WORKSPACE + "/" + project_name
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
+
+    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    prepare_mergin_project(mc, full_project_name)
+
+    config.update(
+        {
+            "MERGIN__PROJECT_NAME": full_project_name,
+            "PROJECT_WORKING_DIR": work_project_dir,
+            "DRIVER": "local",
+            "LOCAL__DEST": driver_dir,
+            "OPERATION_MODE": "copy",
+            "ALLOWED_EXTENSIONS": ["jpg"],
+            "BASE_PATH": None,
+            "REFERENCES": [
+                {
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
+                }
+            ],
+        }
+    )
+    # full checkout as done by older versions of media sync
+    mc.download_project(full_project_name, work_project_dir)
+    assert os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+    assert MerginProject(work_project_dir).file_filter()["include"] is None
+
+    # first pull downloads project again with filter
+    files_to_sync = mc_pull(mc)
+    assert [f["path"] for f in files_to_sync] == ["images/img2.jpg"]
+    assert MerginProject(work_project_dir).file_filter()["include"] == [
+        "*.jpg",
+        "survey.gpkg",
+    ]
+    assert not os.path.exists(os.path.join(work_project_dir, "project.qgz"))
+    assert not os.path.exists(os.path.join(work_project_dir, "img1.png"))
+    media_sync_push(mc, LocalDriver(config), files_to_sync)
+    assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
+    assert mc.project_info(full_project_name)["version"] == "v2"
+
+    # following pull does not download project again (marker file would be removed)
+    marker_file = os.path.join(work_project_dir, "marker.txt")
+    with open(marker_file, "w") as f:
+        f.write("not part of sparse checkout")
+    assert mc_pull(mc) is None
+    assert os.path.exists(marker_file)
 
 
 def test_minio_backend(mc):
@@ -346,12 +477,14 @@ def test_sync_failures(mc):
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
+            # sparse checkout filter is fixed at download time, so survey.gpkg must be referenced
+            # before mc_download() below, otherwise it is not downloaded for the reference tests
             "REFERENCES": [
                 {
-                    "file": None,
-                    "table": None,
-                    "local_path_column": None,
-                    "driver_path_column": None,
+                    "file": "survey.gpkg",
+                    "table": "notes",
+                    "local_path_column": "photo",
+                    "driver_path_column": "ext_url",
                 }
             ],
         }
@@ -411,15 +544,15 @@ def test_sync_failures(mc):
         }
     )
 
-    # introduce some unknown local file
+    # introduce some unknown local file (files outside of sparse checkout filter are ignored)
     shutil.copyfile(
-        os.path.join(work_project_dir, "survey.gpkg"),
-        os.path.join(work_project_dir, "new.gpkg"),
+        os.path.join(work_project_dir, "img1.png"),
+        os.path.join(work_project_dir, "new.png"),
     )
     with pytest.raises(MediaSyncError) as exc:
         media_sync_push(mc, driver, files_to_sync)
     assert "There are changes to be added - it should never happen" in exc.value.args[0]
-    os.remove(os.path.join(work_project_dir, "new.gpkg"))
+    os.remove(os.path.join(work_project_dir, "new.png"))
 
     # remove local file which should have been synced -> just skipped
     os.remove(os.path.join(work_project_dir, "img1.png"))
@@ -550,15 +683,11 @@ def test_sync_without_references(mc, project_name: str, config_update: dict):
 
     main()
 
-    gpkg_conn = sqlite3.connect(os.path.join(work_project_dir, "survey.gpkg"))
-    gpkg_cur = gpkg_conn.cursor()
-    sql = "SELECT count(*) FROM photos WHERE ext_url IS NULL"
-    gpkg_cur.execute(sql)
-    assert gpkg_cur.fetchone()[0] == 1
-
-    sql = "SELECT count(*) FROM notes WHERE ext_url IS NULL"
-    gpkg_cur.execute(sql)
-    assert gpkg_cur.fetchone()[0] == 3
+    assert os.path.exists(os.path.join(driver_dir, "img1.png"))
+    assert os.path.exists(os.path.join(driver_dir, "images", "img2.jpg"))
+    # geopackage is not needed without references so it is not downloaded nor changed
+    assert not os.path.exists(os.path.join(work_project_dir, "survey.gpkg"))
+    assert mc.project_info(full_project_name)["version"] == "v1"
 
 
 def test_google_drive_backend(mc):

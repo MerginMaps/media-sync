@@ -10,13 +10,14 @@ In this quick start guide you will set up one way synchronization between a new 
 ## 1. Create a bucket
 Create a public bucket if you do not have one.
 
-Alternatively you can run MinIO locally in docker by
+Alternatively you can run MinIO compatible server locally in docker (official MinIO images are no longer published,
+so we use [Silo](https://hub.docker.com/r/pgsty/silo), community maintained MinIO fork) by
 
 ```
 docker run --name some-minio \
 -v $(pwd)/minio_data:/data \
 -p 9000:9000 -p 9001:9001 \
--d minio/minio server /data --console-address ":9001"
+-d pgsty/silo server /data --console-address ":9001"
 ```
 
 ## 2. Create an empty mergin project
