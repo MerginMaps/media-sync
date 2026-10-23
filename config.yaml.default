@@ -31,11 +31,14 @@ google_drive:
   folder:
   share_with:
 
-references:
-  - file: survey.gpkg
-    table: notes
-    local_path_column: photo
-    driver_path_column: ext_url
+# Optional: write URLs of uploaded media files into GeoPackage tables.
+# Empty by default - uncomment and adjust the example below to enable it.
+references: []
+#references:
+#  - file: survey.gpkg
+#    table: notes
+#    local_path_column: photo
+#    driver_path_column: ext_url
 
 daemon:
   sleep_time: 10
