@@ -71,6 +71,13 @@ def validate_config(config):
         ):
             raise ConfigError("Config error: Incorrect media reference settings")
 
+    if "daemon" in config and "max_failed_retries" in config.daemon:
+        max_failed_retries = config.daemon.max_failed_retries
+        if not isinstance(max_failed_retries, int) or max_failed_retries < 0:
+            raise ConfigError(
+                "Config error: `max_failed_retries` in `daemon` must be a non-negative integer."
+            )
+
     if config.driver == DriverType.GOOGLE_DRIVE and not (
         hasattr(config.google_drive, "service_account_file")
         and hasattr(config.google_drive, "folder")
