@@ -42,7 +42,6 @@ references:
 daemon:
   # How often to synchronize (in seconds)
   sleep_time: 10
-  # Failures are retried with exponential backoff (starting at sleep_time, up to 10 minutes or 1 hour for failed logins).
-  # Sync errors after the daemon has started are retried indefinitely, but if the daemon start (login, initial download)
-  # keeps failing or unexpected errors keep occurring, the daemon exits after this number of consecutive failed retries (0 = never exit)
+  # Failed attempts are retried with increasing wait time. The daemon exits after this number of consecutive
+  # failed retries of its start (login, initial download) or unexpected errors (0 = never exit)
   max_failed_retries: 10

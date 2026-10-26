@@ -6,6 +6,7 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import contextlib
 import datetime
 import glob
 import json
@@ -13,6 +14,7 @@ import os
 import pathlib
 import shutil
 import sqlite3
+import tempfile
 import typing
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 from mergin.client import decode_token_data, TokenError
@@ -143,16 +145,23 @@ class AuthTokenStore:
         token = (mc._auth_session or {}).get("token")
         if not token:
             return
+        tmp_path = None
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            # readable only by the owner (on POSIX systems)
-            with open(
-                os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w"
-            ) as f:
+            # write a new file readable only by the owner (on POSIX systems) and replace the stored one with it,
+            # so permissions of the existing file (or symlink target) are not reused and the file is never partially written
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.path.parent, prefix=self.path.name, suffix=".tmp"
+            )
+            with open(fd, "w") as f:
                 json.dump(
                     {"url": self.url, "username": self.username, "token": token}, f
                 )
+            os.replace(tmp_path, self.path)
         except OSError as e:
+            if tmp_path:
+                with contextlib.suppress(OSError):
+                    os.remove(tmp_path)
             print(f"Unable to store Mergin Maps auth token: {e}")
 
     def remove(self) -> None:

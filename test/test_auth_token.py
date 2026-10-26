@@ -163,7 +163,8 @@ def test_login_works_when_token_can_not_be_stored(
 ):
     """Failure to store the token (e.g. read-only directory) is only reported, login still succeeds"""
     mocker.patch(
-        "media_sync.os.open", side_effect=PermissionError("Read-only file system")
+        "media_sync.tempfile.mkstemp",
+        side_effect=PermissionError("Read-only file system"),
     )
 
     mc = media_sync.create_mergin_client()
@@ -174,6 +175,38 @@ def test_login_works_when_token_can_not_be_stored(
         "Unable to store Mergin Maps auth token: Read-only file system"
         in capsys.readouterr().out
     )
+
+
+def test_failed_token_store_keeps_stored_token(token_config, mergin_client, mocker):
+    """When the new token can not be stored, the previously stored file is left as it was
+    and no temporary file is left behind"""
+    _store_token(token_config, username="other")
+    mocker.patch("media_sync.os.replace", side_effect=OSError("Disk full"))
+
+    media_sync.create_mergin_client()
+
+    assert json.loads(token_config.read_text())["token"] == STORED_TOKEN
+    assert os.listdir(token_config.parent) == [token_config.name]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="file permissions are POSIX specific")
+def test_stored_token_file_is_replaced(token_config, mergin_client, tmp_path):
+    """Token is written to a new file readable only by the owner, permissions of an existing file
+    are not reused and a symlink is replaced instead of writing to its target"""
+    _store_token(token_config, username="other")
+    token_config.chmod(0o644)
+    media_sync.create_mergin_client()
+    assert stat.S_IMODE(token_config.stat().st_mode) == 0o600
+    assert json.loads(token_config.read_text())["token"] == NEW_TOKEN
+
+    target = tmp_path / "target.json"
+    target.write_text("target")
+    token_config.unlink()
+    token_config.symlink_to(target)
+    media_sync.create_mergin_client()
+    assert not token_config.is_symlink()
+    assert stat.S_IMODE(token_config.stat().st_mode) == 0o600
+    assert target.read_text() == "target"
 
 
 def test_stored_token_server_error(token_config, mergin_client):
