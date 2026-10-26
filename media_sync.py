@@ -6,15 +6,25 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import contextlib
+import datetime
 import glob
+import json
 import os
+import pathlib
 import shutil
 import sqlite3
+import tempfile
+import typing
 from mergin import MerginClient, MerginProject, LoginError, ClientError
+from mergin.client import decode_token_data, TokenError
 
 from version import __version__
 from drivers import DriverError, create_driver
 from config import config, validate_config, ConfigError
+
+# auth token with less validity left (in seconds) is not reused and new login is done instead
+TOKEN_MIN_VALIDITY = 3600
 
 
 class MediaSyncError(Exception):
@@ -83,15 +93,133 @@ def _get_include_filter():
     return sorted(set(include))
 
 
-def create_mergin_client():
-    """Create instance of MerginClient"""
-    try:
-        return MerginClient(
+def _token_expires_soon(expire: typing.Optional[datetime.datetime]) -> bool:
+    if expire is None:
+        return True
+    delta = expire - datetime.datetime.now(datetime.timezone.utc)
+    return delta.total_seconds() < TOKEN_MIN_VALIDITY
+
+
+class AuthTokenStore:
+    """Stores Mergin Maps auth token, so it can be reused when media sync is restarted instead of new login.
+
+    The token is stored in the parent directory of the project working directory, so it is kept when
+    the project is downloaded again and it can be shared by multiple projects synced by the same user
+    """
+
+    def __init__(self, path: pathlib.Path, url: str, username: str):
+        self.path = path
+        self.url = url
+        self.username = username
+
+    @classmethod
+    def from_config(cls) -> "AuthTokenStore":
+        project_dir = pathlib.Path(config.project_working_dir).absolute()
+        return cls(
+            project_dir.parent / ".mergin_auth.json",
             config.mergin.url,
-            login=config.mergin.username,
-            password=config.mergin.password,
-            plugin_version=f"media-sync/{__version__}",
+            config.mergin.username,
         )
+
+    def load(self) -> typing.Optional[str]:
+        """Returns stored token if it was issued for this server and user and it is not about to expire"""
+        try:
+            with open(self.path) as f:
+                data = json.load(f)
+            if data["url"] != self.url or data["username"] != self.username:
+                return None
+            token = data["token"]
+            expire = datetime.datetime.fromisoformat(decode_token_data(token)["expire"])
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
+            print(f"Unable to read stored Mergin Maps auth token: {e}")
+            return None
+
+        if _token_expires_soon(expire):
+            return None
+        return token
+
+    def save(self, mc: MerginClient) -> None:
+        """Stores auth token of the client"""
+        token = (mc._auth_session or {}).get("token")
+        if not token:
+            return
+        tmp_path = None
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            # write a new file readable only by the owner (on POSIX systems) and replace the stored one with it,
+            # so permissions of the existing file (or symlink target) are not reused and the file is never partially written
+            fd, tmp_path = tempfile.mkstemp(
+                dir=self.path.parent, prefix=self.path.name, suffix=".tmp"
+            )
+            with open(fd, "w") as f:
+                json.dump(
+                    {"url": self.url, "username": self.username, "token": token}, f
+                )
+            os.replace(tmp_path, self.path)
+        except OSError as e:
+            if tmp_path:
+                with contextlib.suppress(OSError):
+                    os.remove(tmp_path)
+            print(f"Unable to store Mergin Maps auth token: {e}")
+
+    def remove(self) -> None:
+        self.path.unlink(missing_ok=True)
+
+
+def auth_token_expires_soon(mc: MerginClient) -> bool:
+    return _token_expires_soon((mc._auth_session or {}).get("expire"))
+
+
+def auth_token_rejected(mc: MerginClient) -> bool:
+    """Checks whether the server rejects auth token of the client although it has not expired yet.
+    Other errors (e.g. server unavailable) are ignored."""
+    try:
+        mc.user_info()
+    except ClientError as e:
+        return e.http_error == 401
+    except Exception:
+        pass
+    return False
+
+
+def _create_mergin_client_from_stored_token() -> typing.Optional[MerginClient]:
+    """Creates MerginClient using stored auth token, returns None if there is no valid stored token"""
+    token_store = AuthTokenStore.from_config()
+    token = token_store.load()
+    if not token:
+        return None
+
+    mc = MerginClient(
+        config.mergin.url,
+        auth_token=token,
+        login=config.mergin.username,
+        password=config.mergin.password,
+        plugin_version=f"media-sync/{__version__}",
+    )
+    if auth_token_rejected(mc):
+        print("Stored Mergin Maps auth token was rejected by the server")
+        token_store.remove()
+        return None
+
+    print("Using stored Mergin Maps auth token")
+    return mc
+
+
+def create_mergin_client():
+    """Create instance of MerginClient, reusing stored auth token if possible"""
+    try:
+        mc = _create_mergin_client_from_stored_token()
+        if mc is None:
+            mc = MerginClient(
+                config.mergin.url,
+                login=config.mergin.username,
+                password=config.mergin.password,
+                plugin_version=f"media-sync/{__version__}",
+            )
+            AuthTokenStore.from_config().save(mc)
+        return mc
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
         raise MediaSyncError(
@@ -109,15 +237,24 @@ def mc_download(mc):
     :return: list(dict) list of project files metadata
     """
     print("Downloading project from Mergin server ...")
+    if os.path.exists(config.project_working_dir):
+        raise MediaSyncError(
+            "The project working directory already exists: "
+            + config.project_working_dir
+        )
     try:
         mc.download_project(
             config.mergin.project_name,
             config.project_working_dir,
             include=_get_include_filter(),
         )
-    except ClientError as e:
-        # this could be e.g. DNS error
-        raise MediaSyncError("Mergin client error on download: " + str(e))
+    except Exception as e:
+        # remove partially downloaded project, otherwise it would be pulled next time instead of new download
+        shutil.rmtree(config.project_working_dir, ignore_errors=True)
+        if isinstance(e, (ClientError, LoginError)):
+            # this could be e.g. DNS error
+            raise MediaSyncError("Mergin client error on download: " + str(e))
+        raise
     mp = MerginProject(config.project_working_dir)
     print(f"Downloaded {_get_project_version()} from Mergin")
     files_to_upload = _get_media_sync_files(mp.inspect_files())
@@ -149,7 +286,7 @@ def mc_pull(mc):
         status_pull, _, _ = mc.project_status(config.project_working_dir)
         # pull even if there are no relevant changes, to keep local version up to date for push
         mc.pull_project(config.project_working_dir)
-    except ClientError as e:
+    except (ClientError, LoginError) as e:
         raise MediaSyncError("Mergin client error on pull: " + str(e))
 
     version = _get_project_version()
@@ -252,7 +389,7 @@ def media_sync_push(mc, driver, files):
             mc.push_project(config.project_working_dir)
             version = _get_project_version()
             print("Pushed new version to Mergin: " + version)
-    except (ClientError, MediaSyncError) as e:
+    except (ClientError, LoginError, MediaSyncError) as e:
         # this could be either because of some temporal error (network, server lock)
         # or permanent one that needs to be resolved by user
         raise MediaSyncError("Mergin client error on push: " + str(e))

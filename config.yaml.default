@@ -1,4 +1,6 @@
-# only media files with allowed extensions (under base_path) and reference geopackages are downloaded here
+# only media files with allowed extensions (under base_path) and reference geopackages are downloaded here.
+# Mergin Maps auth token is stored in its parent directory (.mergin_auth.json) to be reused after restart
+# instead of new login - when running in docker, mount the parent directory as a volume to keep it
 project_working_dir: /tmp/mediasync
 allowed_extensions:
  - jpg
@@ -41,4 +43,8 @@ references: []
 #    driver_path_column: ext_url
 
 daemon:
+  # How often to synchronize (in seconds)
   sleep_time: 10
+  # Failed attempts are retried with increasing wait time. The daemon exits after this number of consecutive
+  # failed retries of its start (login, initial download) or unexpected errors (0 = never exit)
+  max_failed_retries: 10

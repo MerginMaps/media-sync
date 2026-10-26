@@ -50,6 +50,7 @@ def setup_config():
             "MINIO__SECURE": False,
             "MINIO__REGION": "",
             "MINIO__PUBLIC_URL": "",
+            "DAEMON__MAX_FAILED_RETRIES": 10,
         }
     )
 
