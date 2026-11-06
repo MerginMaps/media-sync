@@ -5,7 +5,7 @@ import shutil
 import pytest
 
 from mergin import MerginClient, ClientError
-from config import config
+from config import config, S3_SETTINGS
 
 SERVER_URL = os.environ.get("TEST_MERGIN_URL")
 API_USER = os.environ.get("TEST_API_USERNAME")
@@ -13,9 +13,15 @@ USER_PWD = os.environ.get("TEST_API_PASSWORD")
 TMP_DIR = tempfile.gettempdir()
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_data")
 WORKSPACE = os.environ.get("TEST_API_WORKSPACE")
-MINIO_URL = os.environ.get("TEST_MINIO_URL")
-MINIO_ACCESS_KEY = os.environ.get("TEST_MINIO_ACCESS_KEY")
-MINIO_SECRET_KEY = os.environ.get("TEST_MINIO_SECRET_KEY")
+# local S3-compatible server
+S3_ENDPOINT = os.environ.get("TEST_S3_ENDPOINT")
+S3_ACCESS_KEY = os.environ.get("TEST_S3_ACCESS_KEY")
+S3_SECRET_KEY = os.environ.get("TEST_S3_SECRET_KEY")
+# existing AWS S3 bucket, tests are skipped if not set
+AWS_S3_BUCKET = os.environ.get("TEST_AWS_S3_BUCKET")
+AWS_S3_REGION = os.environ.get("TEST_AWS_S3_REGION")
+AWS_ACCESS_KEY_ID = os.environ.get("TEST_AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("TEST_AWS_SECRET_ACCESS_KEY")
 GOOGLE_DRIVE_FOLDER = os.environ.get("TEST_GOOGLE_DRIVE_FOLDER")
 GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE = os.environ.get(
     "TEST_GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE"
@@ -42,14 +48,8 @@ def setup_config():
             "DRIVER": "",
             "REFERENCES": [],
             "BASE_PATH": "",
-            "MINIO__ENDPOINT": "",
-            "MINIO__ACCESS_KEY": "",
-            "MINIO__SECRET_KEY": "",
-            "MINIO__BUCKET": "",
-            "MINIO__BUCKET_SUBPATH": "",
-            "MINIO__SECURE": False,
-            "MINIO__REGION": "",
-            "MINIO__PUBLIC_URL": "",
+            **{f"S3__{key.upper()}": "" for key in S3_SETTINGS},
+            **{f"MINIO__{key.upper()}": "" for key in S3_SETTINGS},
             "DAEMON__MAX_FAILED_RETRIES": 10,
         }
     )
