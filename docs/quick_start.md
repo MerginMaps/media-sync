@@ -88,18 +88,5 @@ ie. `S3__BUCKET_SUBPATH=MyFolder` to store files in `MyFolder` instead of root o
 In order to stop syncing simply stop docker container.
 
 ## Using S3-compatible storage
-Instead of AWS S3 you can use any S3-compatible storage by setting `S3__ENDPOINT`, see [README](../README.md#s3-compatible-storage).
-For a quick local try you can run [Silo](https://hub.docker.com/r/pgsty/silo) (community maintained MinIO fork) in docker
-(it keeps MinIO names of its settings, e.g. `MINIO_ROOT_USER`):
-
-```shell
-docker run --name silo \
-  -v $(pwd)/silo_data:/data \
-  -p 9000:9000 -p 9001:9001 \
-  -e MINIO_ROOT_USER=EXAMPLE \
-  -e MINIO_ROOT_PASSWORD=EXAMPLEKEY \
-  -d pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address ":9001"
-```
-
-and use `-e S3__ENDPOINT=http://<host>:9000 -e S3__ACCESS_KEY=EXAMPLE -e S3__SECRET_KEY=EXAMPLEKEY -e S3__BUCKET=media`
-(without `S3__REGION` and `S3__CREATE_BUCKET`, the bucket is created by media-sync).
+Instead of AWS S3 you can use any S3-compatible storage by setting `S3__ENDPOINT`. See [S3-compatible storage](s3-compatible.md)
+for how to run RustFS, Garage, SeaweedFS or Silo (community maintained MinIO fork) with media-sync.

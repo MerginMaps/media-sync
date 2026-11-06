@@ -15,9 +15,6 @@ env:
   TEST_API_USERNAME: test_media_sync
   TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
   TEST_API_WORKSPACE: test-media-sync
-  TEST_S3_ENDPOINT: 127.0.0.1:9000
-  TEST_S3_ACCESS_KEY: minioaccesskey
-  TEST_S3_SECRET_KEY: miniosecretkey
   # AWS S3 bucket managed in lara-infra (env/dev-ew1/services/media-sync-ci), tests are skipped if not set
   TEST_AWS_S3_BUCKET: ${{ vars.TEST_AWS_S3_BUCKET }}
   TEST_AWS_S3_REGION: ${{ vars.TEST_AWS_S3_REGION }}
@@ -56,28 +53,13 @@ jobs:
           pipenv install --dev
 
       - name: Run S3-compatible server (Silo, MinIO fork) in Docker
-        run: |
-          docker run -d \
-          -p 127.0.0.1:9000:9000 \
-          -p 127.0.0.1:9001:9001 \
-          -e MINIO_ROOT_USER=$TEST_S3_ACCESS_KEY \
-          -e MINIO_ROOT_PASSWORD=$TEST_S3_SECRET_KEY \
-          pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address :9001 --address :9000
+        run: test/s3_servers/start.sh silo >> "$GITHUB_ENV"
 
-      - name: Test S3 server and Mergin Client
+      - name: Test Mergin Client
         shell: pipenv run python {0}
         run: |
           import os
-          import boto3
           from mergin import MerginClient
-
-          client = boto3.client(
-              "s3",
-              endpoint_url="http://127.0.0.1:9000",
-              aws_access_key_id=os.environ.get('TEST_S3_ACCESS_KEY'),
-              aws_secret_access_key=os.environ.get('TEST_S3_SECRET_KEY'),
-          )
-          client.list_buckets()
 
           mc = MerginClient(os.environ.get('TEST_MERGIN_URL'), 
                             login=os.environ.get('TEST_API_USERNAME'), 
@@ -86,3 +68,38 @@ jobs:
       - name: Run tests
         run: |
           pipenv run pytest test --cov=. --cov-report=term-missing:skip-covered -vv
+
+  # S3 driver with other S3-compatible servers, no Mergin server or secrets are needed
+  S3-compatible-servers:
+
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server: [rustfs, garage, seaweedfs]
+
+    name: S3-compatible server (${{ matrix.server }})
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pipenv
+          pipenv install
+          pipenv install --dev
+
+      - name: Run ${{ matrix.server }} in Docker
+        run: test/s3_servers/start.sh ${{ matrix.server }} >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: pipenv run pytest test/test_s3_compatible.py -vv

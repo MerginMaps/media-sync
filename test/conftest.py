@@ -15,8 +15,13 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "test_
 WORKSPACE = os.environ.get("TEST_API_WORKSPACE")
 # local S3-compatible server
 S3_ENDPOINT = os.environ.get("TEST_S3_ENDPOINT")
-S3_ACCESS_KEY = os.environ.get("TEST_S3_ACCESS_KEY")
-S3_SECRET_KEY = os.environ.get("TEST_S3_SECRET_KEY")
+# dummy credentials of servers started by test/s3_servers/start.sh,
+# in format required by Garage: GK + 24 hex chars and 64 hex chars
+S3_ACCESS_KEY = os.environ.get("TEST_S3_ACCESS_KEY", "GK" + "0" * 23 + "1")
+S3_SECRET_KEY = os.environ.get("TEST_S3_SECRET_KEY", "0" * 63 + "2")
+# optional, needed e.g. by Garage (see test/s3_servers/start.sh)
+S3_REGION = os.environ.get("TEST_S3_REGION")
+S3_CREATE_BUCKET = os.environ.get("TEST_S3_CREATE_BUCKET", "true")
 # existing AWS S3 bucket, tests are skipped if not set
 AWS_S3_BUCKET = os.environ.get("TEST_AWS_S3_BUCKET")
 AWS_S3_REGION = os.environ.get("TEST_AWS_S3_REGION")

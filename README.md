@@ -101,8 +101,8 @@ docker run -it \
   -e S3__ADDRESSING_STYLE=path \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
-We test with [Silo](https://hub.docker.com/r/pgsty/silo) (community maintained MinIO fork). Other S3-compatible servers
-(e.g. RustFS, Garage or SeaweedFS) are expected to work as well, but they are not tested yet.
+We test with open source RustFS, Garage, SeaweedFS and Silo (community maintained MinIO fork) - see
+[S3-compatible storage](docs/s3-compatible.md) for how to run them with media-sync and make uploaded files readable.
 
 ##### Migration from MinIO driver
 `minio` driver was renamed to `s3`. The old `DRIVER=minio` and `MINIO__*` variables still work, but they are deprecated
@@ -168,16 +168,10 @@ You need to install also dev packages:
   pipenv install --dev
 ```
 
-and run local S3-compatible server (we use [Silo](https://hub.docker.com/r/pgsty/silo), community maintained MinIO fork, same as in CI,
-it keeps MinIO names of its settings):
+and run local S3-compatible server in docker (`silo`, `rustfs`, `garage` or `seaweedfs`, CI runs all of them),
+the script prints `TEST_S3_*` variables for it:
 ```shell
-docker run \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  --name silo \
-  -e "MINIO_ROOT_USER=EXAMPLE" \
-  -e "MINIO_ROOT_PASSWORD=EXAMPLEKEY" \
-  pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address ":9001"
+  export $(test/s3_servers/start.sh silo)
 ```
 
 To run automatic tests:
@@ -186,10 +180,13 @@ To run automatic tests:
   export TEST_API_USERNAME=<username>
   export TEST_API_PASSWORD=<pwd>
   export TEST_API_WORKSPACE=<workspace>
-  export TEST_S3_ENDPOINT="localhost:9000"
-  export TEST_S3_ACCESS_KEY=EXAMPLE
-  export TEST_S3_SECRET_KEY=EXAMPLEKEY
   pipenv run pytest test/
+```
+
+Tests of S3 driver with S3-compatible server do not need Mergin Maps server:
+```shell
+  export $(test/s3_servers/start.sh garage)
+  pipenv run pytest test/test_s3_compatible.py
 ```
 
 Tests with AWS S3 are skipped unless an existing bucket is configured (the user only needs to list the bucket and to put
