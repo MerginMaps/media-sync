@@ -3,8 +3,9 @@ FROM python:3.12-slim-bookworm
 LABEL maintainer="Martin Dobias <martin.dobias@lutraconsulting.co.uk>"
 
 # to fix issue with mod_spatialite.so and pygeodiff building
+# media-types provides /etc/mime.types to set correct Content-Type of uploaded files (e.g. webp, m4a)
 RUN apt-get update && \
-    apt-get install -y libsqlite3-mod-spatialite build-essential cmake libsqlite3-dev && \
+    apt-get install -y libsqlite3-mod-spatialite build-essential cmake libsqlite3-dev media-types && \
     rm -rf /var/lib/apt/lists/*
 
 # install dependencies via pipenv system-wide

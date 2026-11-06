@@ -10,10 +10,12 @@ import pytest
 import os
 import shutil
 import sqlite3
+import uuid
+from datetime import datetime, timezone
 
 from mergin import MerginProject
 
-from drivers import MinioDriver, LocalDriver, GoogleDriveDriver
+from drivers import S3Driver, LocalDriver, GoogleDriveDriver, DriverError
 from media_sync import (
     main,
     config,
@@ -22,7 +24,7 @@ from media_sync import (
     mc_download,
     MediaSyncError,
 )
-from config import validate_config, ConfigError
+from config import validate_config, ConfigError, resolve_s3_config, S3_SETTINGS
 
 from .conftest import (
     API_USER,
@@ -30,9 +32,14 @@ from .conftest import (
     TMP_DIR,
     USER_PWD,
     SERVER_URL,
-    MINIO_URL,
-    MINIO_ACCESS_KEY,
-    MINIO_SECRET_KEY,
+    TEST_DATA_DIR,
+    S3_ENDPOINT,
+    S3_ACCESS_KEY,
+    S3_SECRET_KEY,
+    AWS_S3_BUCKET,
+    AWS_S3_REGION,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY,
     GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE,
     GOOGLE_DRIVE_FOLDER,
     cleanup,
@@ -367,9 +374,18 @@ def test_legacy_full_checkout(mc):
     assert os.path.exists(marker_file)
 
 
-def test_minio_backend(mc):
-    """Test media sync connected to minio backend (needs local service running)"""
-    project_name = "mediasync_test_minio"
+def _list_s3_objects(driver, bucket):
+    """Return dict of object names and their content types in S3 bucket"""
+    objects = driver.client.list_objects_v2(Bucket=bucket).get("Contents", [])
+    return {
+        o["Key"]: driver.client.head_object(Bucket=bucket, Key=o["Key"])["ContentType"]
+        for o in objects
+    }
+
+
+def test_s3_backend(mc):
+    """Test media sync connected to S3-compatible backend (needs local service running)"""
+    project_name = "mediasync_test_s3"
     full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
 
@@ -393,22 +409,21 @@ def test_minio_backend(mc):
                     "driver_path_column": None,
                 }
             ],
-            "DRIVER": "minio",
-            "MINIO__ENDPOINT": MINIO_URL,
-            "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
-            "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
-            "MINIO__BUCKET": "test",
+            "DRIVER": "s3",
+            "S3__ENDPOINT": S3_ENDPOINT,
+            "S3__ACCESS_KEY": S3_ACCESS_KEY,
+            "S3__SECRET_KEY": S3_SECRET_KEY,
+            "S3__BUCKET": "test",
+            "S3__SECURE": False,
         }
     )
 
     main()
-    # check synced images
-    driver = MinioDriver(config)
-    minio_objects = [
-        o.object_name for o in driver.client.list_objects("test", recursive=True)
-    ]
-    assert "img1.png" in minio_objects
-    assert "images/img2.jpg" in minio_objects
+    # check synced images and their content types
+    driver = S3Driver(config)
+    s3_objects = _list_s3_objects(driver, "test")
+    assert s3_objects["img1.png"] == "image/png"
+    assert s3_objects["images/img2.jpg"] == "image/jpeg"
 
     # files in mergin project still exist (copy mode)
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
@@ -417,6 +432,7 @@ def test_minio_backend(mc):
     cleanup(mc, full_project_name, [work_project_dir])
     prepare_mergin_project(mc, full_project_name)
 
+    # deprecated minio driver and settings still work
     config.update(
         {
             "MERGIN__USERNAME": API_USER,
@@ -433,10 +449,11 @@ def test_minio_backend(mc):
                     "driver_path_column": None,
                 }
             ],
+            **{f"S3__{key.upper()}": "" for key in S3_SETTINGS},
             "DRIVER": "minio",
-            "MINIO__ENDPOINT": MINIO_URL,
-            "MINIO__ACCESS_KEY": MINIO_ACCESS_KEY,
-            "MINIO__SECRET_KEY": MINIO_SECRET_KEY,
+            "MINIO__ENDPOINT": S3_ENDPOINT,
+            "MINIO__ACCESS_KEY": S3_ACCESS_KEY,
+            "MINIO__SECRET_KEY": S3_SECRET_KEY,
             "MINIO__BUCKET": "test1",
             "MINIO__BUCKET_SUBPATH": "subPath",
         }
@@ -444,12 +461,110 @@ def test_minio_backend(mc):
 
     main()
     # check synced images
-    driver = MinioDriver(config)
-    minio_objects = [
-        o.object_name for o in driver.client.list_objects("test1", recursive=True)
-    ]
-    assert "subPath/img1.png" in minio_objects
-    assert "subPath/images/img2.jpg" in minio_objects
+    driver = S3Driver(config)
+    s3_objects = _list_s3_objects(driver, "test1")
+    assert s3_objects["subPath/img1.png"] == "image/png"
+    assert s3_objects["subPath/images/img2.jpg"] == "image/jpeg"
+
+
+@pytest.fixture
+def isolated_aws_env(monkeypatch):
+    """Ignore local AWS configuration (region, profile, credentials), like in docker container"""
+    for var in ["AWS_REGION", "AWS_DEFAULT_REGION", "AWS_PROFILE"]:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("AWS_CONFIG_FILE", os.devnull)
+    monkeypatch.setenv("AWS_SHARED_CREDENTIALS_FILE", os.devnull)
+
+
+@pytest.mark.skipif(
+    not AWS_S3_BUCKET, reason="AWS S3 bucket for testing is not configured"
+)
+@pytest.mark.parametrize(
+    "settings,base_url",
+    [
+        (
+            {
+                "DRIVER": "s3",
+                "S3__BUCKET": AWS_S3_BUCKET,
+                "S3__REGION": AWS_S3_REGION,
+                "S3__ACCESS_KEY": AWS_ACCESS_KEY_ID,
+                "S3__SECRET_KEY": AWS_SECRET_ACCESS_KEY,
+                # CI user is not allowed to create buckets
+                "S3__CREATE_BUCKET": False,
+            },
+            f"https://{AWS_S3_BUCKET}.s3.{AWS_S3_REGION}.amazonaws.com",
+        ),
+        # existing deployments using AWS S3 with legacy minio driver, without region bucket region is detected
+        (
+            {
+                "DRIVER": "minio",
+                "MINIO__ENDPOINT": "s3.amazonaws.com",
+                "MINIO__SECURE": True,
+                "MINIO__BUCKET": AWS_S3_BUCKET,
+                "MINIO__ACCESS_KEY": AWS_ACCESS_KEY_ID,
+                "MINIO__SECRET_KEY": AWS_SECRET_ACCESS_KEY,
+            },
+            f"https://s3.amazonaws.com/{AWS_S3_BUCKET}",
+        ),
+        (
+            {
+                "DRIVER": "minio",
+                "MINIO__ENDPOINT": "s3.amazonaws.com",
+                "MINIO__SECURE": True,
+                "MINIO__REGION": AWS_S3_REGION,
+                "MINIO__BUCKET": AWS_S3_BUCKET,
+                "MINIO__ACCESS_KEY": AWS_ACCESS_KEY_ID,
+                "MINIO__SECRET_KEY": AWS_SECRET_ACCESS_KEY,
+            },
+            f"https://{AWS_S3_BUCKET}.s3.{AWS_S3_REGION}.amazonaws.com",
+        ),
+    ],
+    ids=["s3", "legacy_minio_no_region", "legacy_minio_region"],
+)
+def test_s3_driver_aws(isolated_aws_env, settings, base_url):
+    """Test S3 driver with existing AWS S3 bucket (only upload is tested, no Mergin project is needed)
+
+    Uploaded objects are not deleted to allow investigation, they expire with bucket lifecycle rule.
+    """
+    subpath = f"test-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid.uuid4().hex[:8]}"
+    print(f"Uploading test files to s3://{AWS_S3_BUCKET}/{subpath}/")
+    config.update(settings)
+    config.update({"S3__BUCKET_SUBPATH": subpath})
+    resolve_s3_config(config)
+
+    driver = S3Driver(config)
+    dest = driver.upload_file(os.path.join(TEST_DATA_DIR, "img1.png"), "img1.png")
+    dest_jpg = driver.upload_file(
+        os.path.join(TEST_DATA_DIR, "images", "img2.jpg"), "images/img2.jpg"
+    )
+    assert dest == f"{base_url}/{subpath}/img1.png"
+    assert dest_jpg == f"{base_url}/{subpath}/images/img2.jpg"
+    head = driver.client.head_object(Bucket=AWS_S3_BUCKET, Key=f"{subpath}/img1.png")
+    assert head["ContentType"] == "image/png"
+    head = driver.client.head_object(
+        Bucket=AWS_S3_BUCKET, Key=f"{subpath}/images/img2.jpg"
+    )
+    assert head["ContentType"] == "image/jpeg"
+
+
+@pytest.mark.skipif(
+    not AWS_S3_BUCKET, reason="AWS S3 bucket for testing is not configured"
+)
+def test_s3_driver_aws_missing_bucket(isolated_aws_env):
+    """Missing bucket is reported when it can not be created"""
+    config.update(
+        {
+            "DRIVER": "s3",
+            "S3__BUCKET": f"{AWS_S3_BUCKET}-missing-{uuid.uuid4().hex[:8]}",
+            "S3__REGION": AWS_S3_REGION,
+            "S3__ACCESS_KEY": AWS_ACCESS_KEY_ID,
+            "S3__SECRET_KEY": AWS_SECRET_ACCESS_KEY,
+            "S3__CREATE_BUCKET": False,
+        }
+    )
+    resolve_s3_config(config)
+    with pytest.raises(DriverError):
+        S3Driver(config)
 
 
 def test_sync_failures(mc):
@@ -712,6 +827,13 @@ def test_sync_without_references(mc, project_name: str, config_update: dict):
     assert mc.project_info(full_project_name)["version"] == "v1"
 
 
+@pytest.mark.skipif(
+    not (
+        GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE
+        and os.path.exists(GOOGLE_DRIVE_SERVICE_ACCOUNT_FILE)
+    ),
+    reason="Google Drive service account for testing is not configured",
+)
 def test_google_drive_backend(mc):
     """Test media sync connected to google drive backend"""
     project_name = "mediasync_test_googledrive"
