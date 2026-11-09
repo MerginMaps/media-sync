@@ -15,9 +15,11 @@ import pathlib
 import shutil
 import sqlite3
 import tempfile
+import time
 import typing
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 from mergin.client import decode_token_data, TokenError
+from mergin.common import SYNC_ATTEMPTS, SYNC_ATTEMPT_WAIT
 
 from version import __version__
 from drivers import DriverError, create_driver
@@ -56,11 +58,43 @@ def _check_has_working_dir():
         )
 
 
+def _get_untracked_files(mp):
+    """Returns files (relative paths) in the working directory which are not project files"""
+    project_files = {f["path"] for f in mp.files()}
+    untracked = set()
+    for root, dirs, files in os.walk(config.project_working_dir):
+        dirs[:] = [d for d in dirs if d != ".mergin"]
+        for f in files:
+            if mp.ignore_file(f):
+                continue
+            path = os.path.relpath(os.path.join(root, f), config.project_working_dir)
+            path = pathlib.Path(path).as_posix()
+            if path not in project_files:
+                untracked.add(path)
+    return untracked
+
+
 def _check_pending_changes():
-    """Check working directory was not modified manually - this is probably uncommitted change from last attempt"""
+    """Check working directory contains only changes left by an interrupted sync (e.g. failed push),
+    otherwise it was probably modified manually.
+    """
     mp = MerginProject(config.project_working_dir)
     status_push = mp.get_push_changes()
-    if status_push["added"] or status_push["updated"] or status_push["removed"]:
+    reference_files = {ref.file for ref in config.references if ref.file}
+    unexpected_updated = [
+        f for f in status_push["updated"] if f["path"] not in reference_files
+    ]
+    # media files are removed only in the move mode
+    removed_media = (
+        _get_media_sync_files(status_push["removed"])
+        if config.operation_mode == "move"
+        else []
+    )
+    if (
+        status_push["added"]
+        or unexpected_updated
+        or len(removed_media) != len(status_push["removed"])
+    ):
         raise MediaSyncError(
             "There are pending changes in the local directory - please review and push manually! "
             + str(status_push)
@@ -267,7 +301,13 @@ def mc_pull(mc):
     :return: list(dict) list of project files metadata
     """
     print("Pulling from mergin server ...")
+    # changes left by interrupted sync (e.g. failed push) are rebased on server changes and pushed
     _check_pending_changes()
+    if mc.has_unfinished_pull(config.project_working_dir):
+        # previous pull failed in the final stage (e.g. locked file), resolving it would only move
+        # local changes to conflicted copies, so it is checked above they are made by media sync
+        print("Previous pull was not finished, downloading project again ...")
+        return _download_again(mc)
 
     mp = MerginProject(config.project_working_dir)
     if mp.file_filter().get("include") != _get_include_filter():
@@ -275,31 +315,101 @@ def mc_pull(mc):
         print(
             "Files to sync have changed in configuration, downloading project again ..."
         )
-        # make sure no local changes are lost when working directory is removed
-        _check_pending_changes()
-        shutil.rmtree(config.project_working_dir)
-        return mc_download(mc)
+        return _download_again(mc)
 
     local_version = mp.version()
-    try:
-        # pull changes are limited to files in sparse checkout filter
-        status_pull, _, _ = mc.project_status(config.project_working_dir)
-        # pull even if there are no relevant changes, to keep local version up to date for push
-        mc.pull_project(config.project_working_dir)
-    except (ClientError, LoginError) as e:
-        raise MediaSyncError("Mergin client error on pull: " + str(e))
+    files_to_upload = _pull_changes(mc)
 
     version = _get_project_version()
     # server version has not changed since last pull
     if version == local_version:
         print("No changes on Mergin.")
-        return
+    else:
+        print("Pulled new version from Mergin: " + version)
 
-    print("Pulled new version from Mergin: " + version)
-    files_to_upload = _get_media_sync_files(
-        status_pull["added"] + status_pull["updated"]
+    return files_to_upload + _push_changes(mc)
+
+
+def _download_again(mc):
+    """Remove working directory and download project again. Local changes are made only by media sync
+    (see _check_pending_changes) and they are recreated - all media files are synced again.
+    :param mc: mergin client instance
+    :return: list(dict) list of project files metadata
+    """
+    shutil.rmtree(config.project_working_dir)
+    return mc_download(mc)
+
+
+def _pull_changes(mc):
+    """Pull latest version, local changes are rebased on top of server changes.
+    If rebase fails, project is downloaded again.
+    :param mc: mergin client instance
+    :return: list(dict) media files to be synced
+    """
+    untracked_files = _get_untracked_files(MerginProject(config.project_working_dir))
+    try:
+        # pull changes are limited to files in sparse checkout filter
+        status_pull, _, _ = mc.project_status(config.project_working_dir)
+        # pull even if there are no relevant changes, to keep local version up to date for push
+        conflicts = mc.pull_project(config.project_working_dir)
+    except (ClientError, LoginError) as e:
+        raise MediaSyncError("Mergin client error on pull: " + str(e))
+    if conflicts:
+        print(
+            "Warning: unable to rebase local changes on server changes (conflicts: "
+            + str(conflicts)
+            + "), downloading project again ..."
+        )
+        return _download_again(mc)
+    # other new files than conflicted copies are edit conflict files - rebase was successful,
+    # but the same feature was modified also on server and local changes won
+    new_edit_conflicts = sorted(
+        _get_untracked_files(MerginProject(config.project_working_dir))
+        - untracked_files
     )
-    return files_to_upload
+    # in the move mode, local removal of a reference wins over the reference to a new file set on server,
+    # the new file is synced, but no feature references it
+    if new_edit_conflicts and config.operation_mode == "move":
+        print(
+            "Warning: features modified also on server were overwritten by media sync, "
+            "please check references to media files manually: "
+            + str(new_edit_conflicts)
+        )
+    return _get_media_sync_files(status_pull["added"] + status_pull["updated"])
+
+
+def _push_changes(mc):
+    """Push changes to mergin back (with changed references and removed files) if applicable.
+    If server has a newer version, pull it (rebase) and try again.
+    :param mc: mergin client instance
+    :return: list(dict) media files pulled from server before successful push
+    """
+    files_to_upload = []
+    for attempt in range(1, SYNC_ATTEMPTS + 1):
+        status_push = MerginProject(config.project_working_dir).get_push_changes()
+        if status_push["added"]:
+            raise MediaSyncError(
+                "Mergin client error on push: There are changes to be added - it should never happen"
+            )
+        # nothing to push (also when project was downloaded again on pull)
+        if not (status_push["updated"] or status_push["removed"]):
+            return files_to_upload
+        try:
+            mc.push_project(config.project_working_dir)
+            print("Pushed new version to Mergin: " + _get_project_version())
+            return files_to_upload
+        except (ClientError, LoginError) as e:
+            # this could be either because of some temporal error (network, server lock)
+            # or permanent one that needs to be resolved by user
+            if (
+                not isinstance(e, ClientError)
+                or not e.is_retryable_sync()
+                or attempt == SYNC_ATTEMPTS
+            ):
+                raise MediaSyncError("Mergin client error on push: " + str(e))
+            print(f"Unable to push ({e}), going to pull and try again ...")
+        time.sleep(SYNC_ATTEMPT_WAIT)
+        files_to_upload += _pull_changes(mc)
 
 
 def _update_references(files):
@@ -348,8 +458,18 @@ def _update_references(files):
 def media_sync_push(mc, driver, files):
     if not files:
         return
-    print("Synchronizing files with external drive...")
     _check_has_working_dir()
+    # media files pulled from server when push is retried need to be synced too
+    while files:
+        _sync_files(driver, files)
+        files = _push_changes(mc)
+
+    print("Sync finished")
+
+
+def _sync_files(driver, files):
+    """Upload media files to external drive and update references to them"""
+    print("Synchronizing files with external drive...")
     migrated_files = {}
 
     # TODO make async and parallel for better performance
@@ -376,25 +496,6 @@ def media_sync_push(mc, driver, files):
         for file in migrated_files.keys():
             src = os.path.join(config.project_working_dir, file)
             os.remove(src)
-
-    # push changes to mergin back (with changed references and removed files) if applicable
-    try:
-        mp = MerginProject(config.project_working_dir)
-        status_push = mp.get_push_changes()
-        if status_push["added"]:
-            raise MediaSyncError(
-                "There are changes to be added - it should never happen"
-            )
-        if status_push["updated"] or status_push["removed"]:
-            mc.push_project(config.project_working_dir)
-            version = _get_project_version()
-            print("Pushed new version to Mergin: " + version)
-    except (ClientError, LoginError, MediaSyncError) as e:
-        # this could be either because of some temporal error (network, server lock)
-        # or permanent one that needs to be resolved by user
-        raise MediaSyncError("Mergin client error on push: " + str(e))
-
-    print("Sync finished")
 
 
 def main():
