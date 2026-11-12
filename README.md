@@ -200,11 +200,5 @@ and get objects in it, uploaded test files are not deleted):
 
 ### Releasing new version
 
-1. Update `version.py` and `CHANGELOG.md`
-2. Tag the new version in git repo
-3. Build and upload the new container (both with the new version tag and as the latest tag)
-   ```
-   docker build --no-cache -t lutraconsulting/mergin-media-sync .
-   docker tag lutraconsulting/mergin-media-sync lutraconsulting/mergin-media-sync:0.1.0
-   docker push lutraconsulting/mergin-media-sync:0.1.0
-   docker push lutraconsulting/mergin-media-sync:latest
+1. Update `version.py`
+2. Create a GitHub release with the new version tag (e.g. `0.1.0`). The `Build Docker Image` workflow builds the container for `linux/amd64` and `linux/arm64` and pushes it to Docker Hub with both the version tag and the `latest` tag. Pre-releases are not pushed.
