@@ -1,7 +1,6 @@
 # S3-compatible storage
 
-Instead of AWS S3 you can use any S3-compatible storage with `s3` driver. These open source servers are tested
-in our CI (see [test/s3_servers/start.sh](../test/s3_servers/start.sh)):
+Instead of AWS S3 you can use any S3-compatible storage with `s3` driver. Currently we test integration of these open source servers:
 
 | Server | Tested version | Notes |
 |---|---|---|
@@ -10,9 +9,7 @@ in our CI (see [test/s3_servers/start.sh](../test/s3_servers/start.sh)):
 | [SeaweedFS](https://github.com/seaweedfs/seaweedfs) | 4.51 | credentials are defined in `s3.json` file |
 | [Silo](https://hub.docker.com/r/pgsty/silo) (community maintained MinIO fork) | RELEASE.2026-10-18T00-00-00Z | uses MinIO names of its settings, e.g. `MINIO_ROOT_USER` |
 
-The examples below run the server in docker on `localhost` with data stored in a local directory. Replace `my-access-key`
-and `my-secret-key` with your own credentials, and `localhost` with the address of your server - the URLs written
-to your project must be reachable by its users.
+The examples below run the server in docker on `localhost` with data stored in a local directory. Replace `my-access-key` and `my-secret-key` with your own credentials, and `localhost` with the address of your server - the URLs written to your project must be reachable by its users.
 
 Media-sync is then configured with the endpoint of the server, e.g.:
 
@@ -24,17 +21,13 @@ Media-sync is then configured with the endpoint of the server, e.g.:
   -e S3__BUCKET=media \
 ```
 
-See [README](../README.md#using-s3-backend) for all S3 settings.
+See [Using Media Sync](using.md#using-s3-backend) for all S3 settings.
 
 ## Make files readable
 
-Media-sync writes URLs of uploaded files to your project, e.g. `http://localhost:9000/media/images/photo.jpg`.
-For QGIS or a web browser to display them, files in the bucket need to be readable without credentials (read only,
-uploads still need the access key). Each server below shows how to do it with its own tools. The bucket is created
-by media-sync on its first start (except for Garage), so start media-sync first or create the bucket yourself.
+Media-sync writes URLs of uploaded files to your project, e.g. `http://localhost:9000/media/images/photo.jpg`. For QGIS or a web browser to display them, files in the bucket need to be readable without credentials (read only, uploads still need the access key). Each server below shows how to do it with its own tools. The bucket is created by media-sync on its first start (except for Garage), so start media-sync first or create the bucket yourself.
 
-Alternatively you can use any S3 client which supports bucket policies (e.g. `s3cmd` or `mc`) to set a policy
-allowing `s3:GetObject` on `arn:aws:s3:::media/*` to everyone (`"Principal": "*"`).
+Alternatively you can use any S3 client which supports bucket policies (e.g. `s3cmd` or `mc`) to set a policy allowing `s3:GetObject` on `arn:aws:s3:::media/*` to everyone (`"Principal": "*"`).
 
 ## RustFS
 
@@ -104,8 +97,7 @@ Media-sync settings:
 
 ## Garage
 
-Garage needs a configuration file `garage.toml`. This one runs a single node with S3 API on port 3900 and
-website endpoint on port 3902, which serves the files without credentials:
+Garage needs a configuration file `garage.toml`. This one runs a single node with S3 API on port 3900 and website endpoint on port 3902, which serves the files without credentials:
 
 ```toml
 metadata_dir = "/var/lib/garage/meta"
@@ -149,8 +141,7 @@ garage bucket website --allow media
 ```
 
 Media-sync settings - region has to match `s3_region` from `garage.toml` and the bucket is not created by media-sync.
-Files are served by the website endpoint at `http://<bucket>.web.garage.localhost:3902`
-(`*.localhost` resolves to your computer, on a server use your own domain in `root_domain` of `[s3_web]`):
+Files are served by the website endpoint at `http://<bucket>.web.garage.localhost:3902` (`*.localhost` resolves to your computer, on a server use your own domain in `root_domain` of `[s3_web]`):
 
 ```shell
   -e DRIVER=s3 \

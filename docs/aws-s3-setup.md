@@ -78,4 +78,4 @@ Use the bucket with these settings (the bucket already exists, so media-sync doe
   -e S3__CREATE_BUCKET=false \
 ```
 
-See [README](../README.md#using-s3-backend) for all S3 settings.
+See [Using Media Sync](using.md#using-s3-backend) for all S3 settings.
