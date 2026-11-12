@@ -13,6 +13,7 @@ boto3 = "~=1.43"
 mergin-client = "==0.15.0"
 dynaconf = {extras = ["ini"],version = "~=3.1"}
 google-api-python-client = "~=2.100"
+truststore = "==0.10.4"
 
 [requires]
 python_version = "3.12"

@@ -40,10 +40,10 @@ docker run -it \
   -e MERGIN__PROJECT_NAME=john/my_project \
   -e LOCAL__DEST=/data \
   -e OPERATION_MODE=move \
-  -e REFERENCES = "[{file='my_survey.gpkg', table='my_table', local_path_column='col_with_path', driver_path_column='col_with_ext_url'}]" \
+  -e REFERENCES="[{file='my_survey.gpkg', table='my_table', local_path_column='col_with_path', driver_path_column='col_with_ext_url'}]" \
   lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
 ```
-Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
+Make sure you have correct structure of your .gpkg file. Otherwise leave `REFERENCES` unset (no references are updated by default).
 
 ## Using S3 backend
 To upload files to AWS S3 bucket, switch to `s3` driver:
@@ -94,7 +94,7 @@ docker run -it \
 Currently we test integration with open source solutions like RustFS, Garage, SeaweedFS and Silo (community maintained MinIO fork) - see [S3-compatible storage](s3-compatible.md) for how to run them with media-sync and make uploaded files readable.
 
 ### Migration from MinIO driver
-In previous releases (0.5.0 and older) we used MinIO as the default storage object backend but we migrated to AWS S3 since. The old setup is still supported but if you want to migrate to the new configuration you need to set `DRIVER=s3` and rename `MINIO__*` variables to `S3__*` (e.g. `MINIO__ACCESS_KEY` to `S3__ACCESS_KEY`).
+In previous releases (0.5.0 and older) we used MinIO as the default storage object backend but we migrated to AWS S3 since. The old setup is still supported but if you want to migrate to the new configuration you need to set `DRIVER=s3` and rename `MINIO__*` variables to `S3__*` (e.g. `MINIO__ACCESS_KEY` to `S3__ACCESS_KEY`). `S3__SECURE` defaults to `true`, so for a server on plain http use `http://` in `S3__ENDPOINT` (or set `S3__SECURE=false`).
 
 ## Using Google Drive backend
 For setup instructions and more details, please refer to our [Google Drive guide](google-drive-setup.md).
