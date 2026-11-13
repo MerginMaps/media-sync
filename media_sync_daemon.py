@@ -14,7 +14,13 @@ import os
 import sys
 import time
 
-from config import config, validate_config, ConfigError, update_config_path
+from config import (
+    config,
+    project_dir,
+    validate_config,
+    ConfigError,
+    update_config_path,
+)
 from drivers import DriverError, create_driver
 from media_sync import (
     auth_token_expires_soon,
@@ -60,7 +66,7 @@ def retry_wait_time(
 
 def run_sync_cycle(mc, driver, logger):
     """Download the project if it is not present yet or pull changes, then sync media files"""
-    if not os.path.exists(config.project_working_dir):
+    if not os.path.exists(project_dir()):
         logger.info(
             "Project directory not found. Downloading from Mergin maps server..."
         )

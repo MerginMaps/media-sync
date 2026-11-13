@@ -12,18 +12,36 @@ import shutil
 import typing
 import re
 import enum
-
-from minio import Minio
-from minio.error import S3Error
+import mimetypes
 from urllib.parse import urlparse, urlunparse
+
+# IMPORTANT: mergin must be imported before boto3/botocore - keep this import first.
+# On import, mergin.client calls truststore.inject_into_ssl(), which replaces ssl.SSLContext.
+# botocore binds SSLContext at its import time - if that happens before the injection, it keeps
+# the original class and boto3 client creation fails with RecursionError.
+# Doing it here (the only module importing boto3) makes every entry point safe regardless of its import order.
+import mergin  # noqa: F401
+
+import boto3
+from boto3.exceptions import S3UploadFailedError
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import BotoCoreError, ClientError
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaFileUpload
 
+# standard AWS S3 endpoints - s3.amazonaws.com, s3.<region>.amazonaws.com or legacy s3-<region>.amazonaws.com
+AWS_S3_ENDPOINT_RE = re.compile(
+    r"^s3(?:[.-](?P<region>[a-z]{2}(?:-[a-z]+)+-\d+))?\.amazonaws\.com$",
+    re.IGNORECASE,
+)
+
 
 class DriverType(enum.Enum):
     LOCAL = "local"
+    S3 = "s3"
+    # deprecated alias of S3
     MINIO = "minio"
     GOOGLE_DRIVE = "google_drive"
 
@@ -40,6 +58,12 @@ class DriverType(enum.Enum):
 
 class DriverError(Exception):
     pass
+
+
+def guess_content_type(path):
+    """Guess media type of file from its extension, defaults to generic binary type"""
+    content_type, _ = mimetypes.guess_type(path)
+    return content_type or "application/octet-stream"
 
 
 class Driver:
@@ -76,52 +100,104 @@ class LocalDriver(Driver):
         return dest
 
 
-class MinioDriver(Driver):
-    """Driver to handle connection to minio-like server"""
+class S3Driver(Driver):
+    """Driver to handle connection to AWS S3 or S3-compatible server"""
 
     def __init__(self, config):
-        super(MinioDriver, self).__init__(config)
+        super(S3Driver, self).__init__(config)
+        s3 = config.s3
+
+        self.bucket = s3.bucket
+        self.bucket_subpath = s3.get("bucket_subpath") or None
+        addressing_style = s3.get("addressing_style") or "auto"
+
+        endpoint_url = None
+        if s3.get("endpoint"):
+            endpoint_url = s3.endpoint
+            if "://" not in endpoint_url:
+                scheme = "https" if s3.get("secure", True) else "http"
+                endpoint_url = f"{scheme}://{endpoint_url}"
+            endpoint_url = endpoint_url.rstrip("/")
+
+        # AWS S3 endpoint (e.g. s3.amazonaws.com from legacy minio settings) is not passed to boto3,
+        # so it uses regional endpoints and follows redirects to bucket region if region is not set
+        client_endpoint_url = endpoint_url
+        region = s3.get("region") or None
+        host = urlparse(endpoint_url).hostname if endpoint_url else None
+        if aws_endpoint := AWS_S3_ENDPOINT_RE.match(host or ""):
+            client_endpoint_url = None
+            region = region or aws_endpoint.group("region")
 
         try:
-            self.client = Minio(
-                endpoint=config.minio.endpoint,
-                access_key=config.minio.access_key,
-                secret_key=config.minio.secret_key,
-                secure=config.as_bool("minio.secure"),
-                region=config.minio.region,
+            self.client = boto3.client(
+                "s3",
+                endpoint_url=client_endpoint_url,
+                region_name=region,
+                # if keys are not set, default AWS credentials chain is used (env variables, IAM role, ...)
+                aws_access_key_id=s3.get("access_key") or None,
+                aws_secret_access_key=s3.get("secret_key") or None,
+                config=BotoConfig(
+                    signature_version="s3v4",
+                    s3={"addressing_style": addressing_style},
+                    # checksums added by default in recent boto3 are not supported by all S3-compatible servers
+                    request_checksum_calculation="when_required",
+                    response_checksum_validation="when_required",
+                ),
             )
-            self.bucket = config.minio.bucket
-            bucket_found = self.client.bucket_exists(self.bucket)
-            if not bucket_found:
-                self.client.make_bucket(self.bucket)
+            self._ensure_bucket(s3.get("create_bucket", True))
+        except (ClientError, BotoCoreError, ValueError) as e:
+            raise DriverError("S3 driver init error: " + str(e))
 
-            self.bucket_subpath = None
-            if hasattr(config.minio, "bucket_subpath") and config.minio.bucket_subpath:
-                self.bucket_subpath = config.minio.bucket_subpath
+        # construct base url for bucket
+        if s3.get("public_url"):
+            self.base_url = s3.public_url.rstrip("/")
+        elif endpoint_url is None:
+            self.base_url = f"https://{self.bucket}.s3.{s3.region}.amazonaws.com"
+        elif s3.get("region") and "amazonaws" in endpoint_url.lower():
+            scheme = urlparse(endpoint_url).scheme
+            self.base_url = f"{scheme}://{self.bucket}.s3.{s3.region}.amazonaws.com"
+        elif addressing_style == "virtual":
+            url = urlparse(endpoint_url)
+            self.base_url = urlunparse(
+                url._replace(netloc=f"{self.bucket}.{url.netloc}")
+            )
+        else:
+            self.base_url = endpoint_url + "/" + self.bucket
 
-            # construct base url for bucket
-            scheme = "https://" if config.as_bool("minio.secure") else "http://"
-
-            if hasattr(config.minio, "public_url") and config.minio.public_url:
-                self.base_url = config.minio.public_url.rstrip("/")
-            elif config.minio.region and "amazonaws" in config.minio.endpoint.lower():
-                self.base_url = (
-                    f"{scheme}{self.bucket}.s3.{config.minio.region}.amazonaws.com"
+    def _ensure_bucket(self, create_bucket):
+        """Check that bucket exists, optionally create it"""
+        try:
+            self.client.head_bucket(Bucket=self.bucket)
+            return
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code")
+            if code not in ("404", "NoSuchBucket", "NotFound"):
+                raise
+            if not create_bucket:
+                raise DriverError(
+                    f"S3 driver init error: bucket {self.bucket} does not exist"
                 )
-            else:
-                self.base_url = scheme + config.minio.endpoint + "/" + self.bucket
-        except S3Error as e:
-            raise DriverError("MinIO driver init error: " + str(e))
+
+        # us-east-1 is the default location and it can not be specified
+        region = self.client.meta.region_name
+        location = {}
+        if region and region != "us-east-1":
+            location["CreateBucketConfiguration"] = {"LocationConstraint": region}
+        self.client.create_bucket(Bucket=self.bucket, **location)
 
     def upload_file(self, src, obj_path):
         if self.bucket_subpath:
             obj_path = f"{self.bucket_subpath}/{obj_path}"
         try:
-            res = self.client.fput_object(self.bucket, obj_path, src)
-            dest = self.base_url + "/" + res.object_name
-        except S3Error as e:
-            raise DriverError("MinIO driver error: " + str(e))
-        return dest
+            self.client.upload_file(
+                src,
+                self.bucket,
+                obj_path,
+                ExtraArgs={"ContentType": guess_content_type(src)},
+            )
+        except (ClientError, BotoCoreError, S3UploadFailedError) as e:
+            raise DriverError("S3 driver error: " + str(e))
+        return self.base_url + "/" + obj_path
 
 
 class GoogleDriveDriver(Driver):
@@ -288,8 +364,8 @@ def create_driver(config):
     driver = None
     if config.driver == DriverType.LOCAL:
         driver = LocalDriver(config)
-    elif config.driver == DriverType.MINIO:
-        driver = MinioDriver(config)
+    elif config.driver in (DriverType.S3, DriverType.MINIO):
+        driver = S3Driver(config)
     elif config.driver == DriverType.GOOGLE_DRIVE:
         driver = GoogleDriveDriver(config)
     return driver

@@ -1,7 +1,3 @@
-# only media files with allowed extensions (under base_path) and reference geopackages are downloaded here.
-# Mergin Maps auth token is stored in its parent directory (.mergin_auth.json) to be reused after restart
-# instead of new login - when running in docker, mount the parent directory as a volume to keep it
-project_working_dir: /tmp/mediasync
 allowed_extensions:
  - jpg
  - png
@@ -18,15 +14,28 @@ mergin:
 local:
   dest: /tmp/mediasync_copy
 
-minio:
-  endpoint: localhost:9000
-  access_key: EXAMPLE
-  secret_key: EXAMPLEKEY
-  bucket: test
-  secure: false
+# AWS S3 or S3-compatible storage (driver: s3)
+# Settings left empty here fall back to the deprecated `minio` section (MINIO__* variables), so keep them empty
+s3:
+  # name of the bucket (required)
+  bucket:
+  # AWS region (e.g. eu-west-1), required for AWS S3
   region:
+  # leave empty for AWS S3; for S3-compatible servers host:port (with `secure`) or full URL, e.g. http://localhost:9000
+  endpoint:
+  # use https for endpoint without scheme (default: true)
+  secure:
+  # if keys are empty, AWS default credentials chain is used (AWS_* environment variables, IAM role, ...)
+  access_key:
+  secret_key:
+  # optional folder within the bucket to store files in
   bucket_subpath:
+  # optional base URL of the bucket written to references, e.g. when served through reverse proxy or CDN
   public_url:
+  # auto (default), path or virtual - some S3-compatible servers need path
+  addressing_style:
+  # create the bucket if it does not exist (default: true)
+  create_bucket:
 
 google_drive:
   service_account_file: 

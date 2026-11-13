@@ -133,3 +133,5 @@ dmypy.json
 
 # custom local config.yaml
 config.yaml
+
+data

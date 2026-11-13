@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "media-sync",
+      "credentials": [{"accessKey": "GK000000000000000000000001", "secretKey": "0000000000000000000000000000000000000000000000000000000000000002"}],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

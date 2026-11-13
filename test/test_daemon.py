@@ -14,7 +14,7 @@ import pytest
 from mergin import ClientError, MerginClient
 
 import media_sync_daemon
-from config import config
+from config import config, project_dir
 from drivers import create_driver
 from media_sync import MediaSyncError
 
@@ -64,7 +64,12 @@ def run_daemon(mocker):
 def sync_mocks(mocker, tmp_path):
     """Mocks Mergin client creation and sync steps. Download creates the project working directory
     unless it fails with an error from `download_errors` list"""
-    config.update({"PROJECT_WORKING_DIR": str(tmp_path / "project")})
+    config.update(
+        {
+            "MERGIN__PROJECT_NAME": "workspace/project",
+            "WORKING_DIR": str(tmp_path / "work"),
+        }
+    )
     mc = mocker.MagicMock()
     mc._auth_session = {
         "expire": datetime.datetime.now(datetime.timezone.utc)
@@ -75,7 +80,7 @@ def sync_mocks(mocker, tmp_path):
     def download(mc):
         if download_errors:
             raise download_errors.pop(0)
-        os.makedirs(config.project_working_dir)
+        os.makedirs(project_dir())
 
     return mocker.Mock(
         mc=mc,
@@ -259,7 +264,7 @@ def _setup_daemon_sync(tmp_path, project_name):
     config.update(
         {
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": str(tmp_path / "project"),
+            "WORKING_DIR": str(tmp_path / "work"),
             "DRIVER": "local",
             "LOCAL__DEST": str(tmp_path / "driver"),
             "ALLOWED_EXTENSIONS": ["jpg"],

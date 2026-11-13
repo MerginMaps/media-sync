@@ -1,153 +1,29 @@
 # Mergin Maps Media Sync
-Sync media files from Mergin Maps projects to other storage backends. Currently, supported backend are MinIO (S3-like) backend, Google Drive and local drive (mostly used for testing).
+Sync media files from Mergin Maps projects to other storage backends. Currently, supported backends are AWS S3 (and S3-compatible storage), Google Drive and local drive (mostly used for testing).
 
-Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are
-subsequently removed from Mergin Maps project (on cloud).
+Sync works in two modes, in COPY mode, where media files are only copied to external drive and MOVE mode, where files are subsequently removed from Mergin Maps project (on cloud). Optionally, references to media files in project geopackages can be updated.
 
-Also user can choose whether references to media files should be updated.
-
-Only files needed for the sync are downloaded from the Mergin Maps project to the local working directory - media files
-with `allowed_extensions` (under `base_path` if set) and geopackages listed in `references`. Other project files (e.g. QGIS project,
-basemaps) are not downloaded. If the configuration of synced files changes, the project is downloaded again.
-
-**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
-
-### Quick start
-
-Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin Maps project to your MinIO/S3 bucket.
-
-<a href="https://community.merginmaps.com">Join our community</a> and ask questions!
-
-Basic principle is that media-sync deamon COPY or MOVE your pictures from Mergin Maps server to other storage backend. Here is an example of MOVE operation:
 ![Overview](docs/images/overview.png)
 
-#### Running with Docker
-To run the container, use a command like the following one:
-```shell
-  docker run -it \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
-```
-The sync process will start, regularly checking Mergin Maps service copy/move media files from a Mergin Maps project to an external storage.
-Local drive is a default backend, you need to mount volume from host machine for data to persist.
+## Getting started
 
-#### Update reference table in geopackage
-If you'd like to update references to media files (probably useful with MOVE mode), you can run:
-```shell
-docker run -it \
-  -v /tmp/mediasync:/data \
-  --name mergin-media-sync \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  -e LOCAL__DEST=/data \
-  -e OPERATION_MODE=move \
-  -e REFERENCES = "[{file='my_survey.gpkg', table='my_table', local_path_column='col_with_path', driver_path_column='col_with_ext_url'}]" \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
-```
-Make sure you have correct structure of you .gpkg file. Otherwise leave all `REFERENCE__` variables empty.
+There are three steps to get Media Sync up and running:
 
-#### Using MinIO backend
-Last, in case you want to switch to different driver, you can run:
-```shell
-docker run -it \
-  --name mergin-media-sync \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e MERGIN__PROJECT_NAME=john/my_project \
-  -e MERGIN__PROJECT_NAME=ttest/mediasync_test \
-  -e DRIVER=minio \
-  -e MINIO__ENDPOINT="minio-server-url" \
-  -e MINIO__ACCESS_KEY=access-key \
-  -e MINIO__SECRET_KEY=secret-key \
-  -e MINIO__BUCKET=destination-bucket \
-  -e MINIO__SECURE=1 \
-  -e MINIO__BUCKET_SUBPATH=SubFolder \
-  -e MINIO__PUBLIC_URL="https://my-minio-server.com" \
-  lutraconsulting/mergin-media-sync python3 media_sync_daemon.py
-```
+1. Install the tool. See the [installation guide](docs/install.md)
 
-**Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
+2. Set up configuration and storage backend. See [Using Media Sync](docs/using.md).
 
-The specification of `MINIO__BUCKET_SUBPATH` is optional and can be skipped if the files should be stored directly in `MINIO__BUCKET`.
+3. Run the tool (see [Using Media Sync](docs/using.md))
 
-The specification of `MINIO__PUBLIC_URL` is optional and can be used if the public URL to access files is different from the one specified in `MINIO__ENDPOINT` (e.g. when using a reverse proxy). If not specified, the value of `MINIO__ENDPOINT` will be used as the base URL for accessing files.
+Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync from a new Mergin Maps project to your AWS S3 bucket.
 
-#### Using Google Drive backend
-For setup instructions and more details, please refer to our [Google Drive guide](./docs/google-drive-setup.md).
+## Documentation
 
-### Installation
+- [How to install](docs/install.md)
+- [Using Media Sync](docs/using.md)
+- [AWS S3 setup](docs/aws-s3-setup.md)
+- [S3-compatible storage](docs/s3-compatible.md)
+- [Google Drive setup](docs/google-drive-setup.md)
+- [For developers](docs/development.md)
 
-#### Docker
-The easiest way to run Media sync is with Docker provided on our [docker hub repo](https://hub.docker.com/repository/docker/lutraconsulting/mergin-media-sync). You can build your own local docker image, by first cloning the repo:
-
-```
-git clone git@github.com:lutraconsulting/mergin-media-sync.git
-```
-
-And then building the image:
-
-```
-docker build -t mergin_media_sync .
-```
-#### Manual installation
-
-If you would like to avoid the manual installation steps, please follow the guide on using sync with Docker above. We use pipenv for managing python virtual environment.
-
-```shell
-  pipenv install --three
-```
-
-If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
-`python -m pip install --upgrade pip`
-
-
-### How to use
-
-If you want to modify references to media files in some geopackage in your project, please make sure you have two columns there,
-one with reference to local file and another for external URL where file can be downloaded from.
-
-Initialization:
-
-1. set up configuration in config.yaml  (see config.yaml.default for a sample)
-2. all settings can be overridden with env variables (see docker example above)
-3. run media-sync
-```shell
-  pipenv run python3 media_sync.py
-```
-
-### Running Tests
-You need to install also dev packages:
-```shell
-  pipenv install --dev
-```
-
-and run local MinIO compatible server (we use [Silo](https://hub.docker.com/r/pgsty/silo), community maintained MinIO fork, same as in CI):
-```shell
-docker run \
-  -p 9000:9000 \
-  -p 9001:9001 \
-  --name minio \
-  -e "MINIO_ROOT_USER=EXAMPLE" \
-  -e "MINIO_ROOT_PASSWORD=EXAMPLEKEY" \
-  pgsty/silo:RELEASE.2026-10-18T00-00-00Z server /data --console-address ":9001"
-```
-
-To run automatic tests:
-```shell
-  export TEST_MERGIN_URL=<url>                # testing server
-  export TEST_API_USERNAME=<username>
-  export TEST_API_PASSWORD=<pwd>
-  export TEST_API_WORKSPACE=<workspace>
-  export TEST_MINIO_URL="localhost:9000"
-  export TEST_MINIO_ACCESS_KEY=EXAMPLE
-  export TEST_MINIO_SECRET_KEY=EXAMPLEKEY
-  pipenv run pytest test/
-```
-
-### Releasing new version
-
-1. Update `version.py`
-2. Create a GitHub release with the new version tag (e.g. `0.1.0`). The `Build Docker Image` workflow builds the container for `linux/amd64` and `linux/arm64` and pushes it to Docker Hub with both the version tag and the `latest` tag. Pre-releases are not pushed.
+<div><a href="https://community.merginmaps.com">Join our community</a> and ask questions!</div>
