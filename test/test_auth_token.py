@@ -16,7 +16,7 @@ import pytest
 from mergin import ClientError, MerginClient
 
 import media_sync
-from config import config
+from config import config, project_dir
 
 
 def _create_test_token(label: str, validity_hours: float = 12) -> str:
@@ -37,13 +37,14 @@ NEW_TOKEN = _create_test_token("new")
 
 @pytest.fixture
 def token_config(tmp_path):
-    """Configures Mergin credentials and project working directory, the auth token is stored in its parent"""
+    """Configures Mergin credentials and working directory where the auth token is stored"""
     config.update(
         {
             "MERGIN__URL": "https://mergin.example.com",
             "MERGIN__USERNAME": "user",
             "MERGIN__PASSWORD": "pwd",
-            "PROJECT_WORKING_DIR": str(tmp_path / "project"),
+            "MERGIN__PROJECT_NAME": "workspace/project",
+            "WORKING_DIR": str(tmp_path),
         }
     )
     return tmp_path / ".mergin_auth.json"
@@ -107,17 +108,17 @@ def test_stored_token_is_reused(token_config, mergin_client):
 
 
 def test_stored_token_is_shared_by_projects(token_config, mergin_client):
-    """Token is stored outside of the project working directory, so it is kept when the project
-    is downloaded again and it is reused for other projects in the same parent directory
+    """Token is stored outside of the project checkout, so it is kept when the project
+    is downloaded again and it is reused for other projects in the same working directory
     """
     media_sync.create_mergin_client()
-    config.update({"PROJECT_WORKING_DIR": str(token_config.parent / "another_project")})
+    config.update({"MERGIN__PROJECT_NAME": "workspace/another_project"})
 
     mc = media_sync.create_mergin_client()
 
     assert mc._auth_session["token"] == NEW_TOKEN
     assert _logins(mergin_client) == 1
-    assert not os.path.exists(config.project_working_dir)
+    assert not os.path.exists(project_dir())
 
 
 @pytest.mark.parametrize(
@@ -228,7 +229,7 @@ def test_stored_token_server_error(token_config, mergin_client):
 def test_stored_token_with_server(tmp_path, mocker):
     """Integration test with real server: stored token is reused without new login,
     tampered token is rejected by the server and new login is done"""
-    config.update({"PROJECT_WORKING_DIR": str(tmp_path / "project")})
+    config.update({"WORKING_DIR": str(tmp_path)})
     token_path = tmp_path / ".mergin_auth.json"
     login = mocker.spy(MerginClient, "login")
 

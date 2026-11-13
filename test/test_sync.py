@@ -62,13 +62,13 @@ def test_sync(mc):
     project_name = "mediasync_test"
     full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(
-        TMP_DIR, project_name + "_work"
-    )  # working dir for mediasync
+        TMP_DIR, project_name + "_work", project_name
+    )  # project checkout in working dir for mediasync
     driver_dir = os.path.join(
         TMP_DIR, project_name + "_driver"
     )  # destination dir for 'local' driver
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
@@ -79,7 +79,7 @@ def test_sync(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -190,10 +190,10 @@ def test_pull_and_sync(mc):
     """Test media sync if mergin project is ahead of locally downloaded one"""
     project_name = "mediasync_test_pull"
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
     driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
@@ -202,7 +202,7 @@ def test_pull_and_sync(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -252,16 +252,16 @@ def test_sparse_checkout(mc):
     and project is downloaded again when the configuration of synced files changes"""
     project_name = "mediasync_test_sparse"
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
     driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
         {
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -324,16 +324,16 @@ def test_legacy_full_checkout(mc):
     is downloaded again with sparse checkout filter only once"""
     project_name = "mediasync_test_legacy"
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
     driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
         {
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -388,9 +388,9 @@ def test_s3_backend(mc):
     """Test media sync connected to S3-compatible backend (needs local service running)"""
     project_name = "mediasync_test_s3"
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
 
-    cleanup(mc, full_project_name, [work_project_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir)])
     prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
@@ -400,7 +400,7 @@ def test_s3_backend(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "OPERATION_MODE": "copy",
             "REFERENCES": [
                 {
@@ -430,7 +430,7 @@ def test_s3_backend(mc):
     assert os.path.exists(os.path.join(work_project_dir, "img1.png"))
     assert os.path.exists(os.path.join(work_project_dir, "images", "img2.jpg"))
 
-    cleanup(mc, full_project_name, [work_project_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir)])
     prepare_mergin_project(mc, full_project_name)
 
     # deprecated minio driver and settings still work
@@ -440,7 +440,7 @@ def test_s3_backend(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "OPERATION_MODE": "copy",
             "REFERENCES": [
                 {
@@ -573,13 +573,13 @@ def test_sync_failures(mc):
     project_name = "mediasync_fail"
     full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(
-        TMP_DIR, project_name + "_work"
-    )  # working dir for mediasync
+        TMP_DIR, project_name + "_work", project_name
+    )  # project checkout in working dir for mediasync
     driver_dir = os.path.join(
         TMP_DIR, project_name + "_driver"
     )  # destination dir for 'local' driver
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
@@ -589,7 +589,7 @@ def test_sync_failures(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -705,13 +705,13 @@ def test_multiple_tables(mc):
     project_name = "mediasync_test_multiple"
     full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(
-        TMP_DIR, project_name + "_work"
-    )  # working dir for mediasync
+        TMP_DIR, project_name + "_work", project_name
+    )  # project checkout in working dir for mediasync
     driver_dir = os.path.join(
         TMP_DIR, project_name + "_driver"
     )  # destination dir for 'local' driver
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     # patch config to fit testing purposes
@@ -722,7 +722,7 @@ def test_multiple_tables(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -794,13 +794,13 @@ def test_sync_without_references(mc, project_name: str, config_update: dict):
     """
     full_project_name = WORKSPACE + "/" + project_name
     work_project_dir = os.path.join(
-        TMP_DIR, project_name + "_work"
-    )  # working dir for mediasync
+        TMP_DIR, project_name + "_work", project_name
+    )  # project checkout in working dir for mediasync
     driver_dir = os.path.join(
         TMP_DIR, project_name + "_driver"
     )  # destination dir for 'local' driver
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
@@ -810,7 +810,7 @@ def test_sync_without_references(mc, project_name: str, config_update: dict):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": "copy",
@@ -839,9 +839,9 @@ def test_google_drive_backend(mc):
     """Test media sync connected to google drive backend"""
     project_name = "mediasync_test_googledrive"
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
 
-    cleanup(mc, full_project_name, [work_project_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir)])
     prepare_mergin_project(mc, full_project_name)
 
     # invalid config
@@ -851,7 +851,7 @@ def test_google_drive_backend(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "OPERATION_MODE": "copy",
             "REFERENCES": [
                 {
@@ -877,7 +877,7 @@ def test_google_drive_backend(mc):
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "OPERATION_MODE": "copy",
             "REFERENCES": [
                 {
@@ -913,16 +913,16 @@ def test_google_drive_backend(mc):
 def _setup_recovery_test(mc, project_name, operation_mode):
     """Prepare project on server and config with references for tests of sync recovery"""
     full_project_name = WORKSPACE + "/" + project_name
-    work_project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    work_project_dir = os.path.join(TMP_DIR, project_name + "_work", project_name)
     driver_dir = os.path.join(TMP_DIR, project_name + "_driver")
 
-    cleanup(mc, full_project_name, [work_project_dir, driver_dir])
+    cleanup(mc, full_project_name, [os.path.dirname(work_project_dir), driver_dir])
     prepare_mergin_project(mc, full_project_name)
 
     config.update(
         {
             "MERGIN__PROJECT_NAME": full_project_name,
-            "PROJECT_WORKING_DIR": work_project_dir,
+            "WORKING_DIR": os.path.dirname(work_project_dir),
             "DRIVER": "local",
             "LOCAL__DEST": driver_dir,
             "OPERATION_MODE": operation_mode,

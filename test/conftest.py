@@ -48,7 +48,7 @@ def setup_config():
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": "",
-            "PROJECT_WORKING_DIR": "",
+            "WORKING_DIR": os.path.join(TMP_DIR, "mediasync"),
             "OPERATION_MODE": "copy",
             "DRIVER": "",
             "REFERENCES": [],

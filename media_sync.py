@@ -23,7 +23,7 @@ from mergin.common import SYNC_ATTEMPTS, SYNC_ATTEMPT_WAIT
 
 from version import __version__
 from drivers import DriverError, create_driver
-from config import config, validate_config, ConfigError
+from config import config, project_dir, validate_config, ConfigError
 
 # auth token with less validity left (in seconds) is not reused and new login is done instead
 TOKEN_MIN_VALIDITY = 3600
@@ -40,21 +40,20 @@ def _quote_identifier(identifier):
 
 def _get_project_version():
     """Returns the current version of the project"""
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(project_dir())
     return mp.version()
 
 
 def _check_has_working_dir():
-    if not os.path.exists(config.project_working_dir):
+    if not os.path.exists(project_dir()):
         raise MediaSyncError(
-            "The project working directory does not exist: "
-            + config.project_working_dir
+            "The project working directory does not exist: " + project_dir()
         )
 
-    if not os.path.exists(os.path.join(config.project_working_dir, ".mergin")):
+    if not os.path.exists(os.path.join(project_dir(), ".mergin")):
         raise MediaSyncError(
             "The project working directory does not seem to contain Mergin project: "
-            + config.project_working_dir
+            + project_dir()
         )
 
 
@@ -62,12 +61,12 @@ def _get_untracked_files(mp):
     """Returns files (relative paths) in the working directory which are not project files"""
     project_files = {f["path"] for f in mp.files()}
     untracked = set()
-    for root, dirs, files in os.walk(config.project_working_dir):
+    for root, dirs, files in os.walk(project_dir()):
         dirs[:] = [d for d in dirs if d != ".mergin"]
         for f in files:
             if mp.ignore_file(f):
                 continue
-            path = os.path.relpath(os.path.join(root, f), config.project_working_dir)
+            path = os.path.relpath(os.path.join(root, f), project_dir())
             path = pathlib.Path(path).as_posix()
             if path not in project_files:
                 untracked.add(path)
@@ -78,7 +77,7 @@ def _check_pending_changes():
     """Check working directory contains only changes left by an interrupted sync (e.g. failed push),
     otherwise it was probably modified manually.
     """
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(project_dir())
     status_push = mp.get_push_changes()
     reference_files = {ref.file for ref in config.references if ref.file}
     unexpected_updated = [
@@ -135,25 +134,17 @@ def _token_expires_soon(expire: typing.Optional[datetime.datetime]) -> bool:
 
 
 class AuthTokenStore:
-    """Stores Mergin Maps auth token, so it can be reused when media sync is restarted instead of new login.
+    """Stores Mergin Maps auth token in the working directory, so it can be reused
+    when media sync is restarted instead of new login"""
 
-    The token is stored in the parent directory of the project working directory, so it is kept when
-    the project is downloaded again and it can be shared by multiple projects synced by the same user
-    """
-
-    def __init__(self, path: pathlib.Path, url: str, username: str):
-        self.path = path
+    def __init__(self, working_dir: str, url: str, username: str):
+        self.path = pathlib.Path(working_dir) / ".mergin_auth.json"
         self.url = url
         self.username = username
 
     @classmethod
     def from_config(cls) -> "AuthTokenStore":
-        project_dir = pathlib.Path(config.project_working_dir).absolute()
-        return cls(
-            project_dir.parent / ".mergin_auth.json",
-            config.mergin.url,
-            config.mergin.username,
-        )
+        return cls(config.working_dir, config.mergin.url, config.mergin.username)
 
     def load(self) -> typing.Optional[str]:
         """Returns stored token if it was issued for this server and user and it is not about to expire"""
@@ -271,25 +262,24 @@ def mc_download(mc):
     :return: list(dict) list of project files metadata
     """
     print("Downloading project from Mergin server ...")
-    if os.path.exists(config.project_working_dir):
+    if os.path.exists(project_dir()):
         raise MediaSyncError(
-            "The project working directory already exists: "
-            + config.project_working_dir
+            "The project working directory already exists: " + project_dir()
         )
     try:
         mc.download_project(
             config.mergin.project_name,
-            config.project_working_dir,
+            project_dir(),
             include=_get_include_filter(),
         )
     except Exception as e:
         # remove partially downloaded project, otherwise it would be pulled next time instead of new download
-        shutil.rmtree(config.project_working_dir, ignore_errors=True)
+        shutil.rmtree(project_dir(), ignore_errors=True)
         if isinstance(e, (ClientError, LoginError)):
             # this could be e.g. DNS error
             raise MediaSyncError("Mergin client error on download: " + str(e))
         raise
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(project_dir())
     print(f"Downloaded {_get_project_version()} from Mergin")
     files_to_upload = _get_media_sync_files(mp.inspect_files())
     return files_to_upload
@@ -303,13 +293,13 @@ def mc_pull(mc):
     print("Pulling from mergin server ...")
     # changes left by interrupted sync (e.g. failed push) are rebased on server changes and pushed
     _check_pending_changes()
-    if mc.has_unfinished_pull(config.project_working_dir):
+    if mc.has_unfinished_pull(project_dir()):
         # previous pull failed in the final stage (e.g. locked file), resolving it would only move
         # local changes to conflicted copies, so it is checked above they are made by media sync
         print("Previous pull was not finished, downloading project again ...")
         return _download_again(mc)
 
-    mp = MerginProject(config.project_working_dir)
+    mp = MerginProject(project_dir())
     if mp.file_filter().get("include") != _get_include_filter():
         # configuration has changed (or project was downloaded without filter by older version)
         print(
@@ -336,7 +326,7 @@ def _download_again(mc):
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
-    shutil.rmtree(config.project_working_dir)
+    shutil.rmtree(project_dir())
     return mc_download(mc)
 
 
@@ -346,12 +336,12 @@ def _pull_changes(mc):
     :param mc: mergin client instance
     :return: list(dict) media files to be synced
     """
-    untracked_files = _get_untracked_files(MerginProject(config.project_working_dir))
+    untracked_files = _get_untracked_files(MerginProject(project_dir()))
     try:
         # pull changes are limited to files in sparse checkout filter
-        status_pull, _, _ = mc.project_status(config.project_working_dir)
+        status_pull, _, _ = mc.project_status(project_dir())
         # pull even if there are no relevant changes, to keep local version up to date for push
-        conflicts = mc.pull_project(config.project_working_dir)
+        conflicts = mc.pull_project(project_dir())
     except (ClientError, LoginError) as e:
         raise MediaSyncError("Mergin client error on pull: " + str(e))
     if conflicts:
@@ -364,8 +354,7 @@ def _pull_changes(mc):
     # other new files than conflicted copies are edit conflict files - rebase was successful,
     # but the same feature was modified also on server and local changes won
     new_edit_conflicts = sorted(
-        _get_untracked_files(MerginProject(config.project_working_dir))
-        - untracked_files
+        _get_untracked_files(MerginProject(project_dir())) - untracked_files
     )
     # in the move mode, local removal of a reference wins over the reference to a new file set on server,
     # the new file is synced, but no feature references it
@@ -386,7 +375,7 @@ def _push_changes(mc):
     """
     files_to_upload = []
     for attempt in range(1, SYNC_ATTEMPTS + 1):
-        status_push = MerginProject(config.project_working_dir).get_push_changes()
+        status_push = MerginProject(project_dir()).get_push_changes()
         if status_push["added"]:
             raise MediaSyncError(
                 "Mergin client error on push: There are changes to be added - it should never happen"
@@ -395,7 +384,7 @@ def _push_changes(mc):
         if not (status_push["updated"] or status_push["removed"]):
             return files_to_upload
         try:
-            mc.push_project(config.project_working_dir)
+            mc.push_project(project_dir())
             print("Pushed new version to Mergin: " + _get_project_version())
             return files_to_upload
         except (ClientError, LoginError) as e:
@@ -424,7 +413,7 @@ def _update_references(files):
         if not all(reference_config):
             return
 
-        gpkg_path = os.path.join(config.project_working_dir, ref.file)
+        gpkg_path = os.path.join(project_dir(), ref.file)
         if not os.path.exists(gpkg_path):
             raise MediaSyncError(f"Reference file not found in project: {ref.file}")
 
@@ -474,7 +463,7 @@ def _sync_files(driver, files):
 
     # TODO make async and parallel for better performance
     for file in files:
-        src = os.path.join(config.project_working_dir, file["path"])
+        src = os.path.join(project_dir(), file["path"])
         if not os.path.exists(src):
             print("Missing local file: " + str(file["path"]))
             continue
@@ -494,7 +483,7 @@ def _sync_files(driver, files):
     # remove from local dir if move mode
     if config.operation_mode == "move":
         for file in migrated_files.keys():
-            src = os.path.join(config.project_working_dir, file)
+            src = os.path.join(project_dir(), file)
             os.remove(src)
 
 
@@ -516,7 +505,7 @@ def main():
         print("Logging in to Mergin...")
         mc = create_mergin_client()
         # initialize or pull changes to sync with latest project version
-        if os.path.exists(config.project_working_dir):
+        if os.path.exists(project_dir()):
             files_to_sync = mc_pull(mc)
         else:
             files_to_sync = mc_download(mc)

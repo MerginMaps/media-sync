@@ -6,7 +6,9 @@ Copyright (C) 2021 Lutra Consulting
 License: MIT
 """
 
+import os
 import pathlib
+import tempfile
 
 from dynaconf import Dynaconf
 from drivers import DriverType
@@ -14,7 +16,13 @@ from drivers import DriverType
 config = Dynaconf(
     envvar_prefix=False,
     settings_files=["config.yaml"],
+    working_dir=(pathlib.Path(tempfile.gettempdir()) / "mediasync").as_posix(),
 )
+
+
+def project_dir() -> str:
+    """Return the local working directory (project checkout): ``<working_dir>/<project name>``"""
+    return os.path.join(config.working_dir, config.mergin.project_name.split("/")[-1])
 
 
 class ConfigError(Exception):
@@ -71,6 +79,12 @@ def validate_config(config):
         config.mergin.username and config.mergin.password and config.mergin.project_name
     ):
         raise ConfigError("Config error: Incorrect mergin settings")
+
+    if config.get("project_working_dir"):
+        print(
+            "Warning: 'project_working_dir' setting is no longer supported and it is ignored, "
+            f"the project is downloaded to {project_dir()}"
+        )
 
     if not (
         config.driver == DriverType.LOCAL

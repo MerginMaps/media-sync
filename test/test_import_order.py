@@ -33,7 +33,9 @@ boto3.client(
 """
 
 
-@pytest.mark.parametrize("module", ["drivers", "config", "media_sync", "media_sync_daemon"])
+@pytest.mark.parametrize(
+    "module", ["drivers", "config", "media_sync", "media_sync_daemon"]
+)
 def test_import_order_boto3_client(module):
     """Importing any module first must not break boto3 - mergin (truststore injection) has to be imported before boto3, see drivers.py"""
     result = subprocess.run(

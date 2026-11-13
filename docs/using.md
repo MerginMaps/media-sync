@@ -8,7 +8,8 @@ subsequently removed from Mergin Maps project (on cloud).
 
 Also user can choose whether references to media files should be updated.
 
-Only files needed for the sync are downloaded from the Mergin Maps project to the local working directory - media files
+Only files needed for the sync are downloaded from the Mergin Maps project to the local checkout in
+`<system temp dir>/mediasync/<project name>` - media files
 with `allowed_extensions` (under `base_path` if set) and geopackages listed in `references`. Other project files (e.g. QGIS project,
 basemaps) are not downloaded. If the configuration of synced files changes, the project is downloaded again.
 

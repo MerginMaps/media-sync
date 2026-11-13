@@ -29,7 +29,7 @@ def _reset_config():
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
             "MERGIN__PROJECT_NAME": "test/mediasync",
-            "PROJECT_WORKING_DIR": "/tmp/working_project",
+            "WORKING_DIR": "/tmp/working_dir",
             "OPERATION_MODE": "copy",
             **{f"S3__{key.upper()}": "" for key in S3_SETTINGS},
             **{f"MINIO__{key.upper()}": "" for key in S3_SETTINGS},
