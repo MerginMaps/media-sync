@@ -108,3 +108,16 @@ For setup instructions and more details, please refer to our [Google Drive guide
 ```shell
   pipenv run python3 media_sync.py
 ```
+
+or as a daemon syncing periodically:
+```shell
+  pipenv run python3 media_sync_daemon.py
+```
+
+## Useful command line options of the daemon
+
+- `config_file_name.yaml` The file name with path of yaml config can be provided. By default the tool uses `config.yaml` file from the current directory.
+
+- `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
+
+- `--log-verbosity` minimal level of messages stored in the log file - `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL`. Default is `INFO`.

@@ -31,6 +31,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaFileUpload
 
+from log_functions import logger
+
 # standard AWS S3 endpoints - s3.amazonaws.com, s3.<region>.amazonaws.com or legacy s3-<region>.amazonaws.com
 AWS_S3_ENDPOINT_RE = re.compile(
     r"^s3(?:[.-](?P<region>[a-z]{2}(?:-[a-z]+)+-\d+))?\.amazonaws\.com$",
@@ -264,7 +266,7 @@ class GoogleDriveDriver(Driver):
             raise DriverError("Google Drive folder exists error: " + str(e))
 
         if len(items) > 1:
-            print(
+            logger.warning(
                 f"Multiple folders with name '{folder_name}' found. Using the first one found."
             )
 
@@ -354,7 +356,7 @@ class GoogleDriveDriver(Driver):
             )
 
         if not emails_to_share_with:
-            print("Google Drive sharing: Not shared with any user")
+            logger.warning("Google Drive sharing: Not shared with any user")
 
         return emails_to_share_with
 

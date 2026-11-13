@@ -22,6 +22,7 @@ from mergin.client import decode_token_data, TokenError
 from mergin.common import SYNC_ATTEMPTS, SYNC_ATTEMPT_WAIT
 
 from version import __version__
+from log_functions import handle_error_and_exit, logger, setup_logger
 from drivers import DriverError, create_driver
 from config import config, project_dir, validate_config, ConfigError
 
@@ -158,7 +159,7 @@ class AuthTokenStore:
         except FileNotFoundError:
             return None
         except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
-            print(f"Unable to read stored Mergin Maps auth token: {e}")
+            logger.warning(f"Unable to read stored Mergin Maps auth token: {e}")
             return None
 
         if _token_expires_soon(expire):
@@ -187,7 +188,7 @@ class AuthTokenStore:
             if tmp_path:
                 with contextlib.suppress(OSError):
                     os.remove(tmp_path)
-            print(f"Unable to store Mergin Maps auth token: {e}")
+            logger.warning(f"Unable to store Mergin Maps auth token: {e}")
 
     def remove(self) -> None:
         self.path.unlink(missing_ok=True)
@@ -224,11 +225,11 @@ def _create_mergin_client_from_stored_token() -> typing.Optional[MerginClient]:
         plugin_version=f"media-sync/{__version__}",
     )
     if auth_token_rejected(mc):
-        print("Stored Mergin Maps auth token was rejected by the server")
+        logger.info("Stored Mergin Maps auth token was rejected by the server")
         token_store.remove()
         return None
 
-    print("Using stored Mergin Maps auth token")
+    logger.info("Using stored Mergin Maps auth token")
     return mc
 
 
@@ -261,7 +262,7 @@ def mc_download(mc):
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
-    print("Downloading project from Mergin server ...")
+    logger.info("Downloading project from Mergin server ...")
     if os.path.exists(project_dir()):
         raise MediaSyncError(
             "The project working directory already exists: " + project_dir()
@@ -280,7 +281,7 @@ def mc_download(mc):
             raise MediaSyncError("Mergin client error on download: " + str(e))
         raise
     mp = MerginProject(project_dir())
-    print(f"Downloaded {_get_project_version()} from Mergin")
+    logger.info(f"Downloaded {_get_project_version()} from Mergin")
     files_to_upload = _get_media_sync_files(mp.inspect_files())
     return files_to_upload
 
@@ -290,19 +291,19 @@ def mc_pull(mc):
     :param mc: mergin client instance
     :return: list(dict) list of project files metadata
     """
-    print("Pulling from mergin server ...")
+    logger.info("Pulling from mergin server ...")
     # changes left by interrupted sync (e.g. failed push) are rebased on server changes and pushed
     _check_pending_changes()
     if mc.has_unfinished_pull(project_dir()):
         # previous pull failed in the final stage (e.g. locked file), resolving it would only move
         # local changes to conflicted copies, so it is checked above they are made by media sync
-        print("Previous pull was not finished, downloading project again ...")
+        logger.info("Previous pull was not finished, downloading project again ...")
         return _download_again(mc)
 
     mp = MerginProject(project_dir())
     if mp.file_filter().get("include") != _get_include_filter():
         # configuration has changed (or project was downloaded without filter by older version)
-        print(
+        logger.info(
             "Files to sync have changed in configuration, downloading project again ..."
         )
         return _download_again(mc)
@@ -313,9 +314,9 @@ def mc_pull(mc):
     version = _get_project_version()
     # server version has not changed since last pull
     if version == local_version:
-        print("No changes on Mergin.")
+        logger.info("No changes on Mergin.")
     else:
-        print("Pulled new version from Mergin: " + version)
+        logger.info("Pulled new version from Mergin: " + version)
 
     return files_to_upload + _push_changes(mc)
 
@@ -345,8 +346,8 @@ def _pull_changes(mc):
     except (ClientError, LoginError) as e:
         raise MediaSyncError("Mergin client error on pull: " + str(e))
     if conflicts:
-        print(
-            "Warning: unable to rebase local changes on server changes (conflicts: "
+        logger.warning(
+            "Unable to rebase local changes on server changes (conflicts: "
             + str(conflicts)
             + "), downloading project again ..."
         )
@@ -359,8 +360,8 @@ def _pull_changes(mc):
     # in the move mode, local removal of a reference wins over the reference to a new file set on server,
     # the new file is synced, but no feature references it
     if new_edit_conflicts and config.operation_mode == "move":
-        print(
-            "Warning: features modified also on server were overwritten by media sync, "
+        logger.warning(
+            "Features modified also on server were overwritten by media sync, "
             "please check references to media files manually: "
             + str(new_edit_conflicts)
         )
@@ -385,7 +386,7 @@ def _push_changes(mc):
             return files_to_upload
         try:
             mc.push_project(project_dir())
-            print("Pushed new version to Mergin: " + _get_project_version())
+            logger.info("Pushed new version to Mergin: " + _get_project_version())
             return files_to_upload
         except (ClientError, LoginError) as e:
             # this could be either because of some temporal error (network, server lock)
@@ -396,7 +397,7 @@ def _push_changes(mc):
                 or attempt == SYNC_ATTEMPTS
             ):
                 raise MediaSyncError("Mergin client error on push: " + str(e))
-            print(f"Unable to push ({e}), going to pull and try again ...")
+            logger.warning(f"Unable to push ({e}), going to pull and try again ...")
         time.sleep(SYNC_ATTEMPT_WAIT)
         files_to_upload += _pull_changes(mc)
 
@@ -417,7 +418,7 @@ def _update_references(files):
         if not os.path.exists(gpkg_path):
             raise MediaSyncError(f"Reference file not found in project: {ref.file}")
 
-        print("Updating references ...")
+        logger.info("Updating references ...")
         try:
             gpkg_conn = sqlite3.connect(gpkg_path)
             gpkg_conn.enable_load_extension(True)
@@ -453,28 +454,28 @@ def media_sync_push(mc, driver, files):
         _sync_files(driver, files)
         files = _push_changes(mc)
 
-    print("Sync finished")
+    logger.info("Sync finished")
 
 
 def _sync_files(driver, files):
     """Upload media files to external drive and update references to them"""
-    print("Synchronizing files with external drive...")
+    logger.info("Synchronizing files with external drive...")
     migrated_files = {}
 
     # TODO make async and parallel for better performance
     for file in files:
         src = os.path.join(project_dir(), file["path"])
         if not os.path.exists(src):
-            print("Missing local file: " + str(file["path"]))
+            logger.warning("Missing local file: " + str(file["path"]))
             continue
 
         try:
             size = os.path.getsize(src) / 1024 / 1024  # file size in MB
-            print(f"Uploading {file['path']} of size {size:.2f} MB")
+            logger.info(f"Uploading {file['path']} of size {size:.2f} MB")
             dest = driver.upload_file(src, file["path"])
             migrated_files[file["path"]] = dest
         except DriverError as e:
-            print(f"Failed to upload {file['path']}: " + str(e))
+            logger.error(f"Failed to upload {file['path']}: " + str(e))
             continue
 
     # update reference table (if applicable)
@@ -488,21 +489,20 @@ def _sync_files(driver, files):
 
 
 def main():
-    print(f"== Starting Mergin Media Sync version {__version__} ==")
+    setup_logger()
+    logger.info(f"== Starting Mergin Media Sync version {__version__} ==")
     try:
         validate_config(config)
     except ConfigError as e:
-        print("Error: " + str(e))
-        return
+        handle_error_and_exit(e)
 
     try:
         driver = create_driver(config)
     except DriverError as e:
-        print("Error: " + str(e))
-        return
+        handle_error_and_exit(e)
 
     try:
-        print("Logging in to Mergin...")
+        logger.info("Logging in to Mergin...")
         mc = create_mergin_client()
         # initialize or pull changes to sync with latest project version
         if os.path.exists(project_dir()):
@@ -511,14 +511,14 @@ def main():
             files_to_sync = mc_download(mc)
 
         if not files_to_sync:
-            print("No files to sync")
+            logger.info("No files to sync")
             return
 
         # sync media files with external driver
         media_sync_push(mc, driver, files_to_sync)
-        print("== Media sync done! ==")
+        logger.info("== Media sync done! ==")
     except MediaSyncError as err:
-        print("Error: " + str(err))
+        handle_error_and_exit(err)
 
 
 if __name__ == "__main__":
