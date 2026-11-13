@@ -9,9 +9,8 @@ License: MIT
 import argparse
 import datetime
 import gc
-import logging
 import os
-import sys
+import pathlib
 import time
 
 from config import (
@@ -33,6 +32,12 @@ from media_sync import (
     MediaSyncError,
 )
 from version import __version__
+from log_functions import (
+    LOG_LEVELS,
+    handle_error_and_exit,
+    logger,
+    setup_logger,
+)
 
 # upper limit (in seconds) of the wait time between retries after repeated failures
 MAX_RETRY_WAIT = 600
@@ -41,16 +46,6 @@ MAX_RETRY_WAIT = 600
 MAX_LOGIN_RETRY_WAIT = 3600
 # default number of consecutive failed retries of startup (login / initial download) or unexpected errors before the daemon exits
 DEFAULT_MAX_FAILED_RETRIES = 10
-
-
-def setup_logger():
-    logger = logging.getLogger("media-sync")
-    logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    return logger
 
 
 def retry_wait_time(
@@ -64,7 +59,7 @@ def retry_wait_time(
     return min(wait_time, max(sleep_time, max_wait))
 
 
-def run_sync_cycle(mc, driver, logger):
+def run_sync_cycle(mc, driver):
     """Download the project if it is not present yet or pull changes, then sync media files"""
     if not os.path.exists(project_dir()):
         logger.info(
@@ -78,7 +73,7 @@ def run_sync_cycle(mc, driver, logger):
     logger.info("Sync complete.")
 
 
-def run_daemon(driver, sleep_time: int, max_failed_retries: int, logger) -> None:
+def run_daemon(driver, sleep_time: int, max_failed_retries: int) -> None:
     """Keep syncing until killed. Failures (including login and initial download) are retried within
     this process with exponential backoff instead of exiting, so the daemon does not
     log in again on every restart by the container / service manager.
@@ -102,7 +97,7 @@ def run_daemon(driver, sleep_time: int, max_failed_retries: int, logger) -> None
                 logger.info("Logging in to Mergin maps server...")
                 mc = create_mergin_client()
 
-            run_sync_cycle(mc, driver, logger)
+            run_sync_cycle(mc, driver)
             started = True
 
             if auth_token_expires_soon(mc):
@@ -124,10 +119,9 @@ def run_daemon(driver, sleep_time: int, max_failed_retries: int, logger) -> None
                 logger.exception(f"Unexpected error: {e!r}")
 
             if max_failed_retries and fatal_failures > max_failed_retries:
-                logger.error(
+                handle_error_and_exit(
                     f"Giving up after {max_failed_retries} retries, the daemon will exit"
                 )
-                sys.exit(1)
             # server may reject the token before it expires, log in again on the next attempt in such case
             if mc is not None and auth_token_rejected(mc):
                 logger.warning(
@@ -164,17 +158,33 @@ def main():
         default="config.yaml",
         help="Path to file with configuration. Default is ./config.yaml",
     )
+    parser.add_argument(
+        "--log-file",
+        default="",
+        help="Store logging also to file.",
+    )
+    parser.add_argument(
+        "--log-verbosity",
+        choices=LOG_LEVELS,
+        default="INFO",
+        help="Set level of logging into log file. Default is INFO.",
+    )
 
     args = parser.parse_args()
-    logger = setup_logger()
+    try:
+        setup_logger(
+            pathlib.Path(args.log_file) if args.log_file else None,
+            args.log_verbosity,
+        )
+    except OSError as e:
+        parser.error(f"Unable to open log file: {e}")
     logger.info(f"== Starting Mergin Media Sync daemon v{__version__} ==")
 
     try:
         update_config_path(args.config_file)
         validate_config(config)
     except (IOError, ConfigError) as e:
-        logger.error(f"Configuration error: {e}")
-        sys.exit(1)
+        handle_error_and_exit(f"Configuration error: {e}")
 
     sleep_time = config.as_int("daemon.sleep_time")
     max_failed_retries = config.get(
@@ -184,11 +194,10 @@ def main():
     try:
         driver = create_driver(config)
     except DriverError as e:
-        logger.error(f"Driver error: {e}")
-        sys.exit(1)
+        handle_error_and_exit(f"Driver error: {e}")
 
     logger.info("Entering sync loop...")
-    run_daemon(driver, sleep_time, max_failed_retries, logger)
+    run_daemon(driver, sleep_time, max_failed_retries)
 
 
 if __name__ == "__main__":

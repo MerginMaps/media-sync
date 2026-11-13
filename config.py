@@ -12,6 +12,7 @@ import tempfile
 
 from dynaconf import Dynaconf
 from drivers import DriverType
+from log_functions import logger
 
 config = Dynaconf(
     envvar_prefix=False,
@@ -49,7 +50,7 @@ def resolve_s3_config(config):
     """Fill `s3` settings missing in config from deprecated `minio` section (MINIO__* variables)"""
     legacy = config.driver == DriverType.MINIO
     if legacy:
-        print("Warning: driver 'minio' is deprecated, use 's3' instead")
+        logger.warning("Driver 'minio' is deprecated, use 's3' instead")
 
     # empty values in config are None or "", while explicit false or 0 is a valid setting
     legacy_settings = False
@@ -60,8 +61,8 @@ def resolve_s3_config(config):
             config.set(f"s3.{key}", legacy_value)
             legacy_settings = True
     if legacy_settings:
-        print(
-            "Warning: 'minio' settings (MINIO__* variables) are deprecated, use 's3' settings (S3__* variables) instead"
+        logger.warning(
+            "'minio' settings (MINIO__* variables) are deprecated, use 's3' settings (S3__* variables) instead"
         )
 
     # legacy minio settings used plain http by default
@@ -81,8 +82,8 @@ def validate_config(config):
         raise ConfigError("Config error: Incorrect mergin settings")
 
     if config.get("project_working_dir"):
-        print(
-            "Warning: 'project_working_dir' setting is no longer supported and it is ignored, "
+        logger.warning(
+            "'project_working_dir' setting is no longer supported and it is ignored, "
             f"the project is downloaded to {project_dir()}"
         )
 
@@ -157,7 +158,7 @@ def update_config_path(
     config_file_path = pathlib.Path(path_param)
 
     if config_file_path.exists():
-        print(f"Using config file: {path_param}")
+        logger.info(f"Using config file: {path_param}")
         user_file_config = Dynaconf(
             envvar_prefix=False,
             settings_files=[config_file_path],
