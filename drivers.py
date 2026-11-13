@@ -15,14 +15,12 @@ import enum
 import mimetypes
 from urllib.parse import urlparse, urlunparse
 
-# keep a reference to the original ssl.SSLContext, otherwise boto3 client creation fails with RecursionError
-# truststore is mergin-client dep and injecting needs to be performed before boto import - boto3 will end in recursion error without this import order
-try:
-    import truststore
-
-    truststore.inject_into_ssl()
-except ImportError:
-    pass
+# IMPORTANT: mergin must be imported before boto3/botocore - keep this import first.
+# On import, mergin.client calls truststore.inject_into_ssl(), which replaces ssl.SSLContext.
+# botocore binds SSLContext at its import time - if that happens before the injection, it keeps
+# the original class and boto3 client creation fails with RecursionError.
+# Doing it here (the only module importing boto3) makes every entry point safe regardless of its import order.
+import mergin  # noqa: F401
 
 import boto3
 from boto3.exceptions import S3UploadFailedError
