@@ -1061,7 +1061,7 @@ def test_recover_after_failed_push(mc, mocker, operation_mode):
 
 
 @pytest.mark.parametrize("operation_mode", ["copy", "move"])
-def test_recover_after_edit_conflict(mc, mocker, capsys, operation_mode):
+def test_recover_after_edit_conflict(mc, mocker, caplog, operation_mode):
     """Test that sync continues after rebase of pending changes with edit conflict (same feature edited on server)"""
     project_name = f"mediasync_recover_edit_conflict_{operation_mode}"
     full_project_name, work_project_dir, driver_dir = _setup_recovery_test(
@@ -1079,7 +1079,7 @@ def test_recover_after_edit_conflict(mc, mocker, capsys, operation_mode):
     _push_server_change(full_project_name, _edit_synced_reference)
 
     # pending changes are rebased with edit conflict and pushed
-    capsys.readouterr()
+    caplog.clear()
     assert mc_pull(mc) == []
     assert mc.project_info(full_project_name)["version"] == "v3"
     edit_conflicts = [
@@ -1087,15 +1087,14 @@ def test_recover_after_edit_conflict(mc, mocker, capsys, operation_mode):
     ]
     assert len(edit_conflicts) == 1
     # user is warned only in the move mode, where reference to a new file could be lost
-    warned = (
-        "please check references to media files manually" in capsys.readouterr().out
-    )
+    warned = "please check references to media files manually" in caplog.text
+    caplog.clear()
     assert warned == (operation_mode == "move")
 
     # edit conflict file does not block next sync and the warning is not repeated
     assert mc_pull(mc) == []
     assert mc.project_info(full_project_name)["version"] == "v3"
-    assert "please check references" not in capsys.readouterr().out
+    assert "please check references" not in caplog.text
 
 
 @pytest.mark.parametrize("operation_mode", ["copy", "move"])

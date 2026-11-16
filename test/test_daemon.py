@@ -7,7 +7,6 @@ License: MIT
 """
 
 import datetime
-import logging
 import os
 
 import pytest
@@ -49,9 +48,8 @@ def run_daemon(mocker):
                 raise StopDaemon()
 
         mocker.patch("media_sync_daemon.time.sleep", side_effect=fake_sleep)
-        logger = logging.getLogger("media-sync-test")
         try:
-            media_sync_daemon.run_daemon(driver, sleep_time, max_failed_retries, logger)
+            media_sync_daemon.run_daemon(driver, sleep_time, max_failed_retries)
         except StopDaemon:
             return sleeps, False
         except SystemExit:

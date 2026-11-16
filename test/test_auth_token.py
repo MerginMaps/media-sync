@@ -160,7 +160,7 @@ def test_stored_token_is_not_used(token_config, mergin_client, stored, user_info
 
 
 def test_login_works_when_token_can_not_be_stored(
-    token_config, mergin_client, mocker, capsys
+    token_config, mergin_client, mocker, caplog
 ):
     """Failure to store the token (e.g. read-only directory) is only reported, login still succeeds"""
     mocker.patch(
@@ -173,8 +173,7 @@ def test_login_works_when_token_can_not_be_stored(
     assert mc._auth_session["token"] == NEW_TOKEN
     assert not token_config.exists()
     assert (
-        "Unable to store Mergin Maps auth token: Read-only file system"
-        in capsys.readouterr().out
+        "Unable to store Mergin Maps auth token: Read-only file system" in caplog.text
     )
 
 

@@ -28,7 +28,7 @@ RUN pip3 uninstall -y pip setuptools wheel 2>/dev/null; \
 
 # media sync code
 WORKDIR /mergin-media-sync
-COPY version.py config.py drivers.py media_sync.py media_sync_daemon.py ./
+COPY version.py log_functions.py config.py drivers.py media_sync.py media_sync_daemon.py ./
 
 # create deafult config file (can be overridden with env variables)
 COPY config.yaml.default ./config.yaml
